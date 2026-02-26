@@ -6,11 +6,11 @@
 }
 
 @layer base {
-  * {
-    @apply border-zinc-200;
-  }
   body {
-    @apply bg-white text-zinc-950 antialiased;
+    @apply bg-[#09090b] text-zinc-300 antialiased;
+  }
+  * {
+    @apply border-zinc-800;
   }
 }
 
@@ -21,13 +21,19 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-zinc-200 rounded-full;
+  @apply bg-zinc-800 rounded-full hover:bg-zinc-700 transition-colors;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-zinc-300;
+/* Animations */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

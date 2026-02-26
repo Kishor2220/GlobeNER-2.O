@@ -15,7 +15,7 @@ import {
 import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/Card";
 import { Button } from "./ui/Button";
-import { Loader2, TrendingUp, Users, MapPin, Building2, Globe, Database, AlertTriangle } from "lucide-react";
+import { Loader2, TrendingUp, Users, MapPin, Building2, Globe, Database, AlertTriangle, BarChart3 } from "lucide-react";
 
 export function Analytics() {
   const [data, setData] = React.useState<any>(null);
@@ -61,6 +61,19 @@ export function Analytics() {
   const entityData = data?.distribution || [];
   const frequencyData = data?.frequency?.slice(0, 10) || [];
   const totalProcessed = data?.total_processed || 0;
+
+  if (totalProcessed === 0 && !isLoading) {
+    return (
+      <div className="flex h-[600px] flex-col items-center justify-center text-center p-12 text-zinc-400">
+        <div className="h-20 w-20 rounded-full bg-zinc-50 flex items-center justify-center mb-6">
+          <BarChart3 className="h-10 w-10 opacity-20" />
+        </div>
+        <h3 className="text-xl font-semibold text-zinc-900">No Data Available</h3>
+        <p className="max-w-sm mt-2">Process some documents in the Analysis or Batch Upload tabs to see global insights.</p>
+        <Button variant="outline" className="mt-8" onClick={() => window.location.reload()}>Refresh Dashboard</Button>
+      </div>
+    );
+  }
 
   const COLORS = ["#3b82f6", "#22c55e", "#a855f7", "#f59e0b", "#ef4444"];
 

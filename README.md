@@ -1,10 +1,10 @@
 # GlobeNER 2.0: Production-Grade Multilingual NER Platform
 
-GlobeNER 2.0 is a scalable, API-first text intelligence system designed for high-precision Named Entity Recognition (NER) across multiple languages. It is built to provide industry-standard NER pipeline behavior.
+GlobeNER 2.0 is a scalable, API-first text intelligence system designed for high-precision Named Entity Recognition (NER) across multiple languages. It uses the state-of-the-art XLM-RoBERTa multilingual model via the Hugging Face Router API for inference.
 
 ## Core Architecture
 
-- **Backend**: Node.js (Express) with Hugging Face-powered NER inference engine.
+- **Backend**: Node.js (Express) with Hugging Face-powered NER inference engine (XLM-RoBERTa via Router API).
 - **Frontend**: React (Vite) with Tailwind CSS, ShadCN-inspired UI, and Recharts.
 - **Database**: SQLite (Better-SQLite3) for analytics and history persistence.
 - **Inference**: High-performance multilingual NER supporting standard entity labels (PER, LOC, ORG).

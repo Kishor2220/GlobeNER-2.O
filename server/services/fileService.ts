@@ -1,7 +1,28 @@
 import { parse } from 'csv-parse/sync';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+
+// Set worker source for Node environment
+pdfjsLib.GlobalWorkerOptions.workerSrc = "pdfjs-dist/legacy/build/pdf.worker.mjs";
+
+export async function parsePDF(buffer: Buffer | Uint8Array): Promise<string> {
+  const uint8Array = new Uint8Array(buffer);
+  const loadingTask = pdfjsLib.getDocument({
+    data: uint8Array,
+    useSystemFonts: true,
+    disableFontFace: true,
+  });
+  const pdf = await loadingTask.promise;
+
+  let text = "";
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map((item: any) => (item as any).str).join(" ") + " ";
+  }
+
+  return text.trim();
+}
 
 export class FileService {
   static async parseCSV(buffer: Buffer): Promise<string[]> {
@@ -21,17 +42,12 @@ export class FileService {
   }
 
   static async parsePDF(buffer: Buffer): Promise<string> {
-    console.log("[FileService] Parsing PDF...");
-    if (!buffer || buffer.length === 0) {
-      throw new Error("Invalid PDF buffer");
-    }
+    console.log("[FileService] Parsing PDF with pdfjs-dist...");
     try {
-      const data = await pdf(buffer);
-      console.log(`[FileService] PDF parsed. Text length: ${data.text?.length || 0}`);
-      return data.text || "";
+      return await parsePDF(buffer);
     } catch (err) {
       console.error("[FileService] PDF parsing failed:", err);
-      throw new Error("Failed to extract text from PDF. Ensure the file is not corrupted or password protected.");
+      throw new Error("Failed to extract text from PDF.");
     }
   }
 

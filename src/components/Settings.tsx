@@ -46,8 +46,8 @@ export function Settings() {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-zinc-900">Model Version</label>
                 <select className="w-full p-2 rounded-md border border-zinc-200 bg-white text-sm outline-none focus:ring-2 focus:ring-zinc-900">
-                  <option>XLM-RoBERTa Multilingual (Latest)</option>
-                  <option>IndicNER v2.0 (Legacy)</option>
+                  <option>XLM-RoBERTa Multilingual (Latest - Recommended)</option>
+                  <option>IndicNER (Legacy - Unsupported)</option>
                   <option>Multilingual-BERT Optimized</option>
                 </select>
               </div>
