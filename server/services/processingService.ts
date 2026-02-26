@@ -64,7 +64,19 @@ export class ProcessingService {
       };
     } catch (error: any) {
       console.error(`[ProcessingService] Error processing ${file.originalname}:`, error);
-      throw error;
+      
+      const processingTime = Date.now() - startTime;
+      DBService.saveDocument({
+        id: documentId,
+        filename: file.originalname,
+        type: ext,
+        content: '',
+        processing_time: processingTime,
+        status: 'error',
+        error_message: error.message || 'Unknown processing error'
+      });
+      
+      throw new Error(`Processing failed for ${file.originalname}: ${error.message}`);
     }
   }
 }

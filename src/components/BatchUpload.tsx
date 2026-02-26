@@ -4,15 +4,16 @@ import {
   Upload, 
   FileText, 
   X, 
-  CheckCircle2, 
   Loader2, 
-  Download,
-  AlertTriangle
+  Database,
+  FileJson,
+  FileSpreadsheet
 } from "lucide-react";
 import axios from "axios";
 import { Button } from "./ui/Button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
 import { cn } from "../lib/utils";
+import { BatchResults } from "./BatchResults";
 
 export function BatchUpload() {
   const [files, setFiles] = React.useState<File[]>([]);
@@ -43,7 +44,6 @@ export function BatchUpload() {
     setIsProcessing(true);
     setProgress(0);
     
-    // Check health before processing
     try {
       const health = await axios.get("/health");
       if (health.data.status !== "ok") {
@@ -65,27 +65,10 @@ export function BatchUpload() {
       try {
         const response = await axios.post("/api/upload", formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 60000 // 60s timeout for file upload
+          timeout: 60000
         });
         
-        if (response.data.type === "batch") {
-          response.data.results.forEach((res: any) => {
-            newResults.push({
-              fileName: `${file.name} (Row)`,
-              status: res.error ? "error" : "success",
-              entities: res.entities?.length || 0,
-              language: "Multilingual (Auto)",
-              error: res.error
-            });
-          });
-        } else {
-          newResults.push({
-            fileName: file.name,
-            status: "success",
-            entities: response.data.entities.length,
-            language: "Multilingual (Auto)"
-          });
-        }
+        newResults.push(response.data);
       } catch (error: any) {
         newResults.push({
           fileName: file.name,
@@ -102,71 +85,115 @@ export function BatchUpload() {
     setIsProcessing(false);
   };
 
+  const getFileIcon = (fileName: string) => {
+    if (fileName.endsWith('.json')) return <FileJson className="h-4 w-4 text-amber-400" />;
+    if (fileName.endsWith('.csv')) return <FileSpreadsheet className="h-4 w-4 text-emerald-400" />;
+    return <FileText className="h-4 w-4 text-indigo-400" />;
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900">Batch Processing</h1>
-        <p className="text-zinc-500">Upload multiple documents to extract entities at scale.</p>
+    <div className="space-y-8 max-w-6xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-6 w-1 bg-indigo-500 rounded-full" />
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-100">Batch Processing</h1>
+          </div>
+          <p className="text-zinc-400 text-sm md:text-base max-w-2xl">Upload multiple documents to extract entities at scale using parallel processing pipelines.</p>
+        </div>
+        <div className="flex items-center gap-3 bg-[#121212] p-2 rounded-xl border border-zinc-800/60 shadow-sm">
+          <div className="flex items-center gap-2 px-3 py-1">
+            <Database className="h-4 w-4 text-indigo-400" />
+            <span className="text-xs font-medium text-zinc-300">Pipeline Active</span>
+            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <Card 
+          <div 
             {...getRootProps()} 
             className={cn(
-              "border-2 border-dashed transition-colors cursor-pointer",
-              isDragActive ? "border-zinc-900 bg-zinc-50" : "border-zinc-200 hover:border-zinc-400"
+              "border-2 border-dashed rounded-xl transition-all duration-200 cursor-pointer relative overflow-hidden group",
+              isDragActive 
+                ? "border-indigo-500 bg-indigo-500/5" 
+                : "border-zinc-800/60 bg-[#121212]/50 hover:border-indigo-500/50 hover:bg-[#121212]/80"
             )}
           >
-            <CardContent className="p-12 flex flex-col items-center justify-center text-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="p-12 flex flex-col items-center justify-center text-center relative z-10">
               <input {...getInputProps()} />
-              <div className="h-12 w-12 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-600 mb-4">
-                <Upload className="h-6 w-6" />
+              <div className={cn(
+                "h-16 w-16 rounded-2xl flex items-center justify-center mb-6 transition-all duration-300 shadow-lg",
+                isDragActive 
+                  ? "bg-indigo-500 text-white shadow-indigo-500/25 scale-110" 
+                  : "bg-zinc-900 text-zinc-400 border border-zinc-800/60 group-hover:text-indigo-400 group-hover:border-indigo-500/30"
+              )}>
+                <Upload className="h-8 w-8" />
               </div>
-              <h3 className="text-lg font-semibold text-zinc-900">Drop files here</h3>
-              <p className="text-sm text-zinc-500 mt-1">Support for .txt, .csv, and .json files</p>
-              <Button variant="outline" className="mt-6">Select Files</Button>
-            </CardContent>
-          </Card>
+              <h3 className="text-lg font-medium text-zinc-100 mb-2">
+                {isDragActive ? "Drop files to upload" : "Drag & drop files here"}
+              </h3>
+              <p className="text-sm text-zinc-500 max-w-[250px]">
+                Support for .txt, .csv, and .json files up to 50MB each
+              </p>
+            </div>
+          </div>
 
           {files.length > 0 && (
-            <Card className="border-zinc-200 shadow-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-bold uppercase tracking-wider text-zinc-500">Queue ({files.length})</CardTitle>
+            <Card className="border-zinc-800/60 shadow-xl shadow-black/20 bg-[#121212]/80 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4">
+              <CardHeader className="pb-3 border-b border-zinc-800/60 bg-zinc-900/50">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-bold uppercase tracking-wider text-zinc-400">Processing Queue</CardTitle>
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-bold">
+                    {files.length} FILES
+                  </span>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="max-h-[300px] overflow-y-auto divide-y divide-zinc-100">
+                <div className="max-h-[300px] overflow-y-auto custom-scrollbar divide-y divide-zinc-800/60">
                   {files.map((file, i) => (
-                    <div key={i} className="flex items-center justify-between p-4 hover:bg-zinc-50 transition-colors">
+                    <div key={i} className="flex items-center justify-between p-4 hover:bg-zinc-800/30 transition-colors group">
                       <div className="flex items-center gap-3">
-                        <FileText className="h-4 w-4 text-zinc-400" />
+                        <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center">
+                          {getFileIcon(file.name)}
+                        </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-zinc-900 truncate max-w-[200px]">{file.name}</span>
-                          <span className="text-[10px] text-zinc-500">{(file.size / 1024).toFixed(1)} KB</span>
+                          <span className="text-sm font-medium text-zinc-200 truncate max-w-[200px] group-hover:text-indigo-300 transition-colors">{file.name}</span>
+                          <span className="text-[10px] text-zinc-500 font-mono">{(file.size / 1024).toFixed(1)} KB</span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => removeFile(i)} className="h-8 w-8 text-zinc-400 hover:text-red-500">
+                      <Button variant="ghost" size="icon" onClick={() => removeFile(i)} className="h-8 w-8 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all">
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
                 </div>
-                <div className="p-4 bg-zinc-50 border-t border-zinc-100">
+                <div className="p-4 bg-zinc-900/80 border-t border-zinc-800/60 rounded-b-xl">
                   {isProcessing ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <div className="flex items-center justify-between text-xs font-medium">
-                        <span>Processing batch...</span>
-                        <span>{progress}%</span>
+                        <span className="text-indigo-400 flex items-center gap-2">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Processing batch...
+                        </span>
+                        <span className="font-mono text-zinc-300">{progress}%</span>
                       </div>
-                      <div className="w-full h-1.5 bg-zinc-200 rounded-full overflow-hidden">
+                      <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-zinc-900 transition-all duration-300" 
+                          className="h-full bg-indigo-500 transition-all duration-300 relative" 
                           style={{ width: `${progress}%` }}
-                        />
+                        >
+                          <div className="absolute inset-0 bg-white/20 animate-[shimmer_1s_infinite] -translate-x-full" />
+                        </div>
                       </div>
                     </div>
                   ) : (
-                    <Button onClick={processBatch} className="w-full">Process {files.length} Files</Button>
+                    <Button onClick={processBatch} className="w-full shadow-lg shadow-indigo-500/20 gap-2">
+                      <Database className="h-4 w-4" />
+                      Process {files.length} Files
+                    </Button>
                   )}
                 </div>
               </CardContent>
@@ -174,65 +201,7 @@ export function BatchUpload() {
           )}
         </div>
 
-        <Card className="border-zinc-200 shadow-sm flex flex-col">
-          <CardHeader className="border-b border-zinc-100">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Process Logs</CardTitle>
-                <CardDescription>Results from your recent batch jobs.</CardDescription>
-              </div>
-              {results.length > 0 && (
-                <Button variant="outline" size="sm" className="h-8 gap-2">
-                  <Download className="h-3.5 w-3.5" />
-                  Export CSV
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="p-0 flex-1 overflow-y-auto max-h-[600px]">
-            {results.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center p-12 text-center text-zinc-400">
-                <div className="h-12 w-12 rounded-full bg-zinc-50 flex items-center justify-center mb-4">
-                  <FileText className="h-6 w-6 opacity-20" />
-                </div>
-                <p className="text-sm">No batch jobs processed yet.</p>
-              </div>
-            ) : (
-              <table className="w-full text-sm text-left">
-                <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-100">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">File</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium text-right">Entities</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-100">
-                  {results.map((res, i) => (
-                    <tr key={i} className="hover:bg-zinc-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-zinc-900 truncate max-w-[150px]">{res.fileName}</td>
-                      <td className="px-4 py-3">
-                        {res.status === "success" ? (
-                          <div className="flex items-center gap-1.5 text-green-600 font-medium text-xs">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>{res.language}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-red-500 font-medium text-xs">
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            <span>Error</span>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono text-xs text-zinc-600">
-                        {res.entities || 0}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </CardContent>
-        </Card>
+        <BatchResults results={results} />
       </div>
     </div>
   );

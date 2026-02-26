@@ -2,7 +2,8 @@ export class AnalyticsService {
   static getFrequency(entities: any[]) {
     const freq: Record<string, number> = {};
     entities.forEach(e => {
-      const key = `${e.text} (${e.type})`;
+      const type = e.type || e.label || "UNKNOWN";
+      const key = `${e.text} (${type})`;
       freq[key] = (freq[key] || 0) + 1;
     });
     return Object.entries(freq)
@@ -14,7 +15,8 @@ export class AnalyticsService {
   static getDistribution(entities: any[]) {
     const dist: Record<string, number> = {};
     entities.forEach(e => {
-      dist[e.type] = (dist[e.type] || 0) + 1;
+      const type = e.type || e.label || "UNKNOWN";
+      dist[type] = (dist[type] || 0) + 1;
     });
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
   }
@@ -30,17 +32,20 @@ export class AnalyticsService {
 
       if (!nodeMap.has(sourceId)) {
         nodeMap.set(sourceId, nodes.length);
-        nodes.push({ id: sourceId, name: rel.source_text, type: rel.source_type });
+        nodes.push({ id: sourceId, name: rel.source_text, label: rel.source_type, value: 0 });
       }
+      nodes[nodeMap.get(sourceId)].value += rel.strength;
+
       if (!nodeMap.has(targetId)) {
         nodeMap.set(targetId, nodes.length);
-        nodes.push({ id: targetId, name: rel.target_text, type: rel.target_type });
+        nodes.push({ id: targetId, name: rel.target_text, label: rel.target_type, value: 0 });
       }
+      nodes[nodeMap.get(targetId)].value += rel.strength;
 
       links.push({
         source: sourceId,
         target: targetId,
-        strength: rel.strength
+        value: rel.strength
       });
     });
 
