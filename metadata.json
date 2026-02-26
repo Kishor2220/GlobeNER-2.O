@@ -1,0 +1,5 @@
+{
+  "name": "GlobeNER 2.0",
+  "description": "Production-grade multilingual text intelligence system with high-precision NER pipeline.",
+  "requestFramePermissions": []
+}
