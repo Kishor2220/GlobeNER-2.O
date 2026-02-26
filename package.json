@@ -22,7 +22,7 @@
     "csv-parse": "^6.1.0",
     "d3": "^7.9.0",
     "date-fns": "^4.1.0",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.3.1",
     "express": "^4.21.2",
     "framer-motion": "^12.34.3",
     "lucide-react": "^0.546.0",
