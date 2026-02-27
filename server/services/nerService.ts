@@ -1,4 +1,5 @@
 import { ModelService } from "./modelService";
+import { RegexService } from "./regexService";
 
 export class NERService {
   static async extract(text: string, confidenceThreshold: number = 0.5): Promise<any[]> {
@@ -16,8 +17,8 @@ export class NERService {
       // Manual aggregation since 'simple' strategy didn't work for this model
       let entities = this.aggregateEntities(output, text);
 
-      // 3. Run Regex Extraction (Rule-based)
-      const ruleEntities = this.extractRules(text);
+      // 3. Run Regex Extraction (Rule-based) - Using the new RegexService
+      const ruleEntities = RegexService.extract(text);
       entities = [...entities, ...ruleEntities];
 
       // 4. Filter by Confidence
@@ -26,7 +27,7 @@ export class NERService {
     } catch (err: any) {
       console.error("[NERService] Extraction failed:", err.message);
       // Fallback to regex only if model fails
-      return this.extractRules(text);
+      return RegexService.extract(text);
     }
   }
 
@@ -141,29 +142,5 @@ export class NERService {
       delete entity.tokens;
       return entity;
     });
-  }
-
-  private static extractRules(text: string) {
-    const rules = [
-      { type: "EMAIL", regex: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g },
-      { type: "PHONE", regex: /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g },
-      { type: "MONEY", regex: /([₹$€£¥]|USD|INR|EUR)\s?\d+([,.]\d+)?/g },
-      { type: "DATE", regex: /\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b|\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/g }
-    ];
-
-    const results: any[] = [];
-    rules.forEach(rule => {
-      let match;
-      while ((match = rule.regex.exec(text)) !== null) {
-        results.push({
-          text: match[0],
-          label: rule.type, // Map 'type' to 'label' for consistency
-          confidence: 1.0,
-          start: match.index,
-          end: match.index + match[0].length
-        });
-      }
-    });
-    return results;
   }
 }
