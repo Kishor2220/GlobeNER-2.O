@@ -65,7 +65,7 @@ export function BatchUpload() {
       try {
         const response = await axios.post("/api/upload", formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 60000
+          timeout: 300000 // 5 minutes for large files/batch
         });
         
         newResults.push(response.data);

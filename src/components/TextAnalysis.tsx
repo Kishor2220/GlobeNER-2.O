@@ -48,15 +48,15 @@ export function TextAnalysis() {
         text, 
         confidenceThreshold: confidence 
       }, {
-        timeout: 35000 // 35 seconds (slightly more than server timeout)
+        timeout: 120000 // Increased timeout for local inference (2 mins)
       });
       setResult(response.data);
     } catch (err: any) {
       console.error("Analysis failed", err);
       if (err.code === 'ECONNABORTED') {
-        setError("The request timed out. The model might be warming up or the text is too large. Please try again in a moment.");
+        setError("The request timed out. The local model might be warming up or the text is too large. Please try again in a moment.");
       } else {
-        setError(err.response?.data?.error || err.response?.data?.details || "Analysis failed. Please check your API key and network connection.");
+        setError(err.response?.data?.error || err.response?.data?.details || "Analysis failed. Please check the server logs.");
       }
     } finally {
       setIsLoading(false);

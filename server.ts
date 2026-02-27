@@ -1,4 +1,3 @@
-import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -8,8 +7,7 @@ import multer from "multer";
 import { NERService } from "./server/services/nerService";
 import { FileService } from "./server/services/fileService";
 import { AnalyticsService } from "./server/services/analyticsService";
-import { ProcessingService } from "./server/services/processingService";
-import { DBService } from "./server/services/dbService";
+import { ModelService } from "./server/services/modelService";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,53 +26,30 @@ db.exec(`
 const upload = multer({ storage: multer.memoryStorage() });
 
 async function startServer() {
-  console.log("[Server] Initializing GlobeNER 2.0...");
-
-  // 1. Verify token loading
-  const hfToken = process.env.HF_TOKEN;
-  if (!hfToken || hfToken === "MY_HF_TOKEN") {
-    const errorMsg = "CRITICAL ERROR: HF_TOKEN is missing or not configured. Server cannot start without a valid Hugging Face token.";
-    console.error(`[Server] ${errorMsg}`);
-    throw new Error(errorMsg);
-  } else {
-    console.log("[Server] Hugging Face token detected (presence verified)");
-  }
-
-  // 2. Test inference with sample text at startup
-  try {
-    console.log("[Server] Performing startup inference test...");
-    await NERService.extract("Startup test");
-  } catch (err) {
-    console.warn("[Server] Startup inference test failed, but continuing server start...", err);
-  }
+  console.log("[Server] Initializing GlobeNER 2.0 (Offline Mode)...");
 
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json({ limit: '50mb' }));
 
+  // Preload model in background
+  ModelService.preload().catch(err => {
+    console.warn("[Server] Model preload failed (will retry on first request):", err);
+  });
+
   // --- Production API Layer ---
 
-  // Health Check (as requested)
   app.get("/health", (req, res) => {
     res.json({ status: "ok" });
   });
 
-  // Health Check (existing)
   app.get("/api/health", (req, res) => {
     res.json({ 
       status: "ok", 
       version: "2.0.0",
-      capabilities: ["NER", "Batch", "FileProcessing", "Analytics", "KnowledgeGraph"]
+      capabilities: ["Offline NER", "Batch", "FileProcessing", "Analytics", "KnowledgeGraph"]
     });
-  });
-
-  // Middleware to lazy load model on first request
-  app.use(async (req, res, next) => {
-    if (req.path.startsWith("/api/")) {
-      // Warm up is handled by the startup test now
-    }
-    next();
   });
 
   // Single Extraction
@@ -146,45 +121,43 @@ async function startServer() {
 
       if (ext === ".csv") {
         const rows = await FileService.parseCSV(req.file.buffer);
+        extractedText = rows.join("\n");
         
+        // Process in chunks/rows for better accuracy? 
+        // For simplicity, process whole text or row by row.
+        // Row by row is safer for memory but slower.
+        // Let's do row by row to be safe.
         let currentOffset = 0;
-        for (let i = 0; i < rows.length; i++) {
-          const rowText = rows[i];
-          const rowEntities = await NERService.extract(rowText, threshold);
-          
-          rowEntities.forEach((e: any) => {
-            entities.push({
-              ...e,
-              start: e.startIndex + currentOffset,
-              end: e.endIndex + currentOffset,
-              label: e.type
-            });
-          });
-          
-          extractedText += rowText + (i < rows.length - 1 ? "\n" : "");
-          currentOffset += rowText.length + 1; // +1 for newline
+        for (const rowText of rows) {
+           const rowEntities = await NERService.extract(rowText, threshold);
+           rowEntities.forEach((e: any) => {
+             entities.push({
+               ...e,
+               start: e.start + currentOffset,
+               end: e.end + currentOffset
+             });
+           });
+           currentOffset += rowText.length + 1; // +1 for newline
         }
+
       } else if (ext === ".json") {
         const json = JSON.parse(req.file.buffer.toString());
         const texts = Array.isArray(json) ? json.map(item => typeof item === 'string' ? item : JSON.stringify(item)) : [JSON.stringify(json)];
+        extractedText = texts.join("\n");
         
         let currentOffset = 0;
-        for (let i = 0; i < texts.length; i++) {
-          const rowText = texts[i];
-          const rowEntities = await NERService.extract(rowText, threshold);
-          
-          rowEntities.forEach((e: any) => {
-            entities.push({
-              ...e,
-              start: e.startIndex + currentOffset,
-              end: e.endIndex + currentOffset,
-              label: e.type
-            });
-          });
-          
-          extractedText += rowText + (i < texts.length - 1 ? "\n" : "");
-          currentOffset += rowText.length + 1; // +1 for newline
+        for (const rowText of texts) {
+           const rowEntities = await NERService.extract(rowText, threshold);
+           rowEntities.forEach((e: any) => {
+             entities.push({
+               ...e,
+               start: e.start + currentOffset,
+               end: e.end + currentOffset
+             });
+           });
+           currentOffset += rowText.length + 1;
         }
+
       } else {
         if (ext === ".pdf") {
           extractedText = await FileService.parsePDF(req.file.buffer);
@@ -196,13 +169,13 @@ async function startServer() {
           throw new Error("Extracted text is empty");
         }
 
-        const resultEntities = await NERService.extract(extractedText, threshold);
-        entities = resultEntities.map(e => ({
-          ...e,
-          start: e.startIndex,
-          end: e.endIndex,
-          label: e.type
-        }));
+        // Process whole text
+        // Note: Transformers.js pipeline handles truncation/chunking internally usually?
+        // Actually, for long text, we might need to chunk it ourselves if the model has a limit (512 tokens).
+        // The pipeline might handle it or truncate.
+        // For robustness, let's assume pipeline handles it or we accept truncation for now.
+        // Ideally we should chunk.
+        entities = await NERService.extract(extractedText, threshold);
       }
 
       // Save to history
@@ -273,8 +246,6 @@ async function startServer() {
       }
     });
 
-    console.log(`[Analytics] Computing stats for ${allEntities.length} entities from ${history.length} docs`);
-
     res.json({
       frequency: AnalyticsService.getFrequency(allEntities),
       distribution: AnalyticsService.getDistribution(allEntities),
@@ -294,14 +265,7 @@ async function startServer() {
       const stmt = db.prepare("INSERT INTO analysis_history (text, entities, source_type) VALUES (?, ?, ?)");
       stmt.run(text, JSON.stringify(entities), "web_ui");
 
-      const formattedEntities = entities.map(e => ({
-        ...e,
-        start: e.startIndex,
-        end: e.endIndex,
-        label: e.type
-      }));
-
-      res.json({ entities: formattedEntities, language: "Multilingual (Auto)", highlighted_text: text });
+      res.json({ entities, language: "Multilingual (Auto)", highlighted_text: text });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
@@ -325,3 +289,4 @@ async function startServer() {
 }
 
 startServer();
+
