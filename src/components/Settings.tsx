@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/Card";
+import { Tooltip } from "./ui/Tooltip";
 
 export function Settings() {
   const [isSaving, setIsSaving] = React.useState(false);
@@ -40,11 +41,15 @@ export function Settings() {
           <p className="text-zinc-400 text-sm md:text-base max-w-2xl">Configure model parameters, API keys, and platform preferences for your organization.</p>
         </div>
         <div className="flex items-center gap-3 bg-[#121212] p-2 rounded-xl border border-zinc-800/60 shadow-sm">
-          <Button variant="ghost" className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Reset Defaults</Button>
-          <Button onClick={handleSave} disabled={isSaving} className="gap-2 min-w-[140px] shadow-lg shadow-indigo-500/20">
-            {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : (saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />)}
-            {saved ? "Changes Saved" : "Save Configuration"}
-          </Button>
+          <Tooltip content="Revert to default settings" position="top">
+            <Button variant="ghost" className="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">Reset Defaults</Button>
+          </Tooltip>
+          <Tooltip content="Apply and save current configuration" position="top">
+            <Button onClick={handleSave} disabled={isSaving} className="gap-2 min-w-[140px] shadow-lg shadow-indigo-500/20">
+              {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : (saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />)}
+              {saved ? "Changes Saved" : "Save Configuration"}
+            </Button>
+          </Tooltip>
         </div>
       </div>
 
@@ -59,10 +64,12 @@ export function Settings() {
                 </CardTitle>
                 <CardDescription className="text-sm text-zinc-400 mt-1">Configure the underlying NER model behavior and hardware acceleration.</CardDescription>
               </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <Activity className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider">System Healthy</span>
-              </div>
+              <Tooltip content="Inference engine is running optimally" position="left">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 cursor-help">
+                  <Activity className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider">System Healthy</span>
+                </div>
+              </Tooltip>
             </div>
           </CardHeader>
           <CardContent className="space-y-8 p-6">
@@ -115,9 +122,11 @@ export function Settings() {
                   <p className="text-xs text-zinc-400 mt-0.5">Automatically pull latest fine-tuned weights from the secure registry.</p>
                 </div>
               </div>
-              <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-zinc-900 transition-colors">
-                <span className="inline-block h-4 w-4 translate-x-6 rounded-full bg-white transition-transform shadow-sm" />
-              </button>
+              <Tooltip content="Toggle automatic model updates" position="left">
+                <button className="relative inline-flex h-6 w-11 items-center rounded-full bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-zinc-900 transition-colors">
+                  <span className="inline-block h-4 w-4 translate-x-6 rounded-full bg-white transition-transform shadow-sm" />
+                </button>
+              </Tooltip>
             </div>
           </CardContent>
         </Card>

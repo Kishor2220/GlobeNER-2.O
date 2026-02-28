@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { cn } from "../lib/utils";
+import { Tooltip } from "./ui/Tooltip";
 
 interface Entity {
   text: string;
@@ -112,17 +113,17 @@ export function BatchResults({ results }: BatchResultsProps) {
       };
 
       parts.push(
-        <span 
-          key={i}
-          className={cn(
-            "inline-flex items-center px-1.5 py-0.5 rounded border text-sm font-medium mx-0.5 transition-colors hover:bg-opacity-30 cursor-default",
-            labelColors[entity.label] || "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"
-          )}
-          title={`Confidence: ${(entity.confidence * 100).toFixed(1)}%`}
-        >
-          {entity.text}
-          <span className="ml-1.5 text-[9px] opacity-80 font-bold uppercase tracking-wider">{entity.label}</span>
-        </span>
+        <Tooltip key={i} content={`Confidence: ${(entity.confidence * 100).toFixed(1)}%`} position="top">
+          <span 
+            className={cn(
+              "inline-flex items-center px-1.5 py-0.5 rounded border text-sm font-medium mx-0.5 transition-colors hover:bg-opacity-30 cursor-help",
+              labelColors[entity.label] || "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"
+            )}
+          >
+            {entity.text}
+            <span className="ml-1.5 text-[9px] opacity-80 font-bold uppercase tracking-wider">{entity.label}</span>
+          </span>
+        </Tooltip>
       );
 
       lastIndex = entity.end;
@@ -140,14 +141,18 @@ export function BatchResults({ results }: BatchResultsProps) {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-zinc-100">Batch Results</h2>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={exportCSV} className="h-8 gap-2 text-xs">
-            <Download className="h-3.5 w-3.5" />
-            CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportJSON} className="h-8 gap-2 text-xs">
-            <Download className="h-3.5 w-3.5" />
-            JSON
-          </Button>
+          <Tooltip content="Export results as CSV" position="top">
+            <Button variant="outline" size="sm" onClick={exportCSV} className="h-8 gap-2 text-xs">
+              <Download className="h-3.5 w-3.5" />
+              CSV
+            </Button>
+          </Tooltip>
+          <Tooltip content="Export results as JSON" position="top">
+            <Button variant="outline" size="sm" onClick={exportJSON} className="h-8 gap-2 text-xs">
+              <Download className="h-3.5 w-3.5" />
+              JSON
+            </Button>
+          </Tooltip>
         </div>
       </div>
       <div className="space-y-4">
@@ -184,7 +189,9 @@ export function BatchResults({ results }: BatchResultsProps) {
                   </div>
                 </div>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400">
-                  {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  <Tooltip content={isExpanded ? "Collapse details" : "Expand details"} position="left">
+                    {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Tooltip>
                 </Button>
               </div>
 
@@ -224,14 +231,16 @@ export function BatchResults({ results }: BatchResultsProps) {
                               <tr key={idx} className="hover:bg-zinc-800/30 transition-colors group">
                                 <td className="px-4 py-3 font-medium text-zinc-200 group-hover:text-indigo-300 transition-colors">{entity.text}</td>
                                 <td className="px-4 py-3">
-                                  <span className={cn(
-                                    "px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider border",
-                                    entity.label === "PER" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
-                                    entity.label === "LOC" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
-                                    "bg-purple-500/10 text-purple-400 border-purple-500/20"
-                                  )}>
-                                    {entity.label}
-                                  </span>
+                                  <Tooltip content={`Entity Type: ${entity.label}`} position="top">
+                                    <span className={cn(
+                                      "px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider border cursor-help",
+                                      entity.label === "PER" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" :
+                                      entity.label === "LOC" ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                                      "bg-purple-500/10 text-purple-400 border-purple-500/20"
+                                    )}>
+                                      {entity.label}
+                                    </span>
+                                  </Tooltip>
                                 </td>
                                 <td className="px-4 py-3 text-right font-mono text-xs text-zinc-400">
                                   {(entity.confidence * 100).toFixed(1)}%

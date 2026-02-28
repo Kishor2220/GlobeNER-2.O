@@ -3,15 +3,43 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-intel-bg: #050505;
+  --color-intel-surface: #0a0a0a;
+  --color-intel-border: rgba(255, 255, 255, 0.05);
+  --color-intel-accent: #6366f1;
+  --color-intel-glow: rgba(99, 102, 241, 0.4);
 }
 
 @layer base {
   * {
-    @apply border-zinc-800;
+    @apply border-zinc-900;
   }
   body {
-    @apply bg-[#0a0a0a] text-zinc-100 antialiased;
+    @apply bg-intel-bg text-zinc-100 antialiased;
   }
+}
+
+@keyframes intel-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+}
+
+@keyframes intel-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.intel-glow {
+  box-shadow: 0 0 20px var(--color-intel-glow);
+}
+
+.intel-card {
+  @apply bg-intel-surface/80 backdrop-blur-2xl border border-intel-border rounded-xl shadow-2xl;
+}
+
+.intel-label {
+  @apply font-mono text-[10px] uppercase tracking-widest text-zinc-500;
 }
 
 /* Custom Scrollbar */

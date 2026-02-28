@@ -5,6 +5,12 @@ import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
 import multer from "multer";
 import { NERService } from "./server/services/nerService";
+import { MemoryService } from "./server/services/memoryService";
+import { RankingService } from "./server/services/rankingService";
+import { ActivityService } from "./server/services/activityService";
+import { RelationshipService } from "./server/services/relationshipService";
+import { AlertService } from "./server/services/alertService";
+import { BehaviorService } from "./server/services/behaviorService";
 import { FileService } from "./server/services/fileService";
 import { AnalyticsService } from "./server/services/analyticsService";
 import { ModelService } from "./server/services/modelService";
@@ -34,7 +40,9 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
 
   // Preload model in background
-  ModelService.preload().catch(err => {
+  ModelService.preload().then(() => {
+    console.log("[Server] Model preloaded and ready for inference.");
+  }).catch(err => {
     console.warn("[Server] Model preload failed (will retry on first request):", err);
   });
 
@@ -60,6 +68,9 @@ async function startServer() {
     try {
       const entities = await NERService.extract(text, threshold);
       
+      // Record to Entity Memory System
+      MemoryService.record(entities, "direct_api_request");
+      
       // Save to history
       const stmt = db.prepare("INSERT INTO analysis_history (text, entities, source_type) VALUES (?, ?, ?)");
       stmt.run(text, JSON.stringify(entities), "direct_api");
@@ -82,6 +93,9 @@ async function startServer() {
       for (const text of texts) {
         try {
           const entities = await NERService.extract(text, threshold);
+          
+          // Record to Entity Memory System
+          MemoryService.record(entities, `batch_item_${results.length + 1}`);
           
           // Save to history
           const stmt = db.prepare("INSERT INTO analysis_history (text, entities, source_type) VALUES (?, ?, ?)");
@@ -178,6 +192,9 @@ async function startServer() {
         entities = await NERService.extract(extractedText, threshold);
       }
 
+      // Record to Entity Memory System
+      MemoryService.record(entities, `file_upload:${req.file.originalname}`);
+
       // Save to history
       const stmt = db.prepare("INSERT INTO analysis_history (text, entities, source_type) VALUES (?, ?, ?)");
       stmt.run(extractedText, JSON.stringify(entities), "file_upload");
@@ -202,55 +219,120 @@ async function startServer() {
     }
   });
 
+  // Intelligence Ranking API
+  app.get("/api/ranking/top", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 10;
+    res.json(RankingService.getTopEntities(limit));
+  });
+
+  app.get("/api/ranking/trending", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 5;
+    res.json(RankingService.getTrendingEntities(limit));
+  });
+
+  app.get("/api/ranking/active", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 5;
+    res.json(RankingService.getMostActiveEntities(limit));
+  });
+
+  // Activity Intelligence API
+  app.get("/api/activity/trends", (req, res) => {
+    res.json(ActivityService.getTrends());
+  });
+
+  app.get("/api/activity/timeline", (req, res) => {
+    const days = parseInt(req.query.days as string) || 7;
+    res.json(ActivityService.getAppearanceTimeline(days));
+  });
+
+  app.get("/api/activity/tracker", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 10;
+    res.json(ActivityService.getLastSeenTracker(limit));
+  });
+
+  // Relationship Evolution API
+  app.get("/api/relationships/new", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 10;
+    res.json(RelationshipService.getNewRelationships(limit));
+  });
+
+  app.get("/api/relationships/strengthened", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 10;
+    res.json(RelationshipService.getStrengthenedRelationships(limit));
+  });
+
+  app.get("/api/relationships/fading", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 10;
+    res.json(RelationshipService.getFadingRelationships(limit));
+  });
+
+  // Intelligence Alerts API
+  app.get("/api/alerts", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const severity = req.query.severity as string;
+    res.json(AlertService.getRecentAlerts(limit, severity));
+  });
+
+  // Behavior Analysis API
+  app.get("/api/behavior", (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 20;
+    res.json(BehaviorService.getBehavioralAnalysis(limit));
+  });
+
   // Analytics Engine
   app.get("/api/analytics", (req, res) => {
+    RelationshipService.refreshRelationships();
+    BehaviorService.computeBehaviorScores();
     const history = db.prepare("SELECT * FROM analysis_history ORDER BY timestamp DESC LIMIT 1000").all();
     
     let allEntities: any[] = [];
-    const cooccurrences = new Map();
-
     history.forEach((row: any) => {
       try {
         const entities = JSON.parse(row.entities);
         if (Array.isArray(entities)) {
           allEntities = [...allEntities, ...entities];
-          
-          // Calculate co-occurrences
-          for (let i = 0; i < entities.length; i++) {
-            for (let j = i + 1; j < entities.length; j++) {
-              const e1 = entities[i];
-              const e2 = entities[j];
-              if (e1.text !== e2.text) {
-                const pair = [
-                  { text: e1.text, type: e1.type || e1.label || "UNKNOWN" },
-                  { text: e2.text, type: e2.type || e2.label || "UNKNOWN" }
-                ].sort((a, b) => a.text.localeCompare(b.text));
-                
-                const key = `${pair[0].text}:${pair[0].type}|${pair[1].text}:${pair[1].type}`;
-                if (!cooccurrences.has(key)) {
-                  cooccurrences.set(key, {
-                    source_text: pair[0].text,
-                    source_type: pair[0].type,
-                    target_text: pair[1].text,
-                    target_type: pair[1].type,
-                    strength: 0
-                  });
-                }
-                cooccurrences.get(key).strength += 1;
-              }
-            }
-          }
         }
-      } catch (e) {
-        console.error("[Analytics] Failed to parse entities for row", row.id);
-      }
+      } catch (e) {}
     });
 
+    const rankedEntities = RankingService.getTopEntities(50);
+    const dbRelationships = db.prepare(`
+      SELECT 
+        rm.*,
+        ea.entity_name as source_name, ea.entity_type as source_type,
+        eb.entity_name as target_name, eb.entity_type as target_type
+      FROM relationship_memory rm
+      JOIN entity_memory ea ON rm.entity_a_id = ea.id
+      JOIN entity_memory eb ON rm.entity_b_id = eb.id
+      ORDER BY rm.co_occurrence_count DESC
+      LIMIT 100
+    `).all() as any[];
+
     res.json({
-      frequency: AnalyticsService.getFrequency(allEntities),
+      frequency: rankedEntities.length > 0 
+        ? rankedEntities.map(e => ({
+            name: e.entity_name,
+            value: e.total_occurrence_count,
+            type: e.entity_type,
+            score: e.rank_score
+          }))
+        : AnalyticsService.getFrequency(allEntities),
       distribution: AnalyticsService.getDistribution(allEntities),
-      relationships: AnalyticsService.getRelationships(Array.from(cooccurrences.values())),
+      relationships: AnalyticsService.getIntelligenceGraph(rankedEntities, dbRelationships),
       total_processed: history.length,
+      trending: RankingService.getTrendingEntities(5),
+      active: RankingService.getMostActiveEntities(5),
+      activity: {
+        trends: ActivityService.getTrends(),
+        timeline: ActivityService.getAppearanceTimeline(7),
+        relationship_timeline: ActivityService.getRelationshipTimeline(7),
+        tracker: ActivityService.getLastSeenTracker(10)
+      },
+      relationship_evolution: {
+        new: RelationshipService.getNewRelationships(5),
+        strengthened: RelationshipService.getStrengthenedRelationships(5),
+        fading: RelationshipService.getFadingRelationships(5)
+      },
       appState: { status: "online", version: "2.0.0" }
     });
   });
@@ -261,6 +343,9 @@ async function startServer() {
     try {
       const entities = await NERService.extract(text, confidenceThreshold);
       
+      // Record to Entity Memory System
+      MemoryService.record(entities, "web_ui_request");
+
       // Save to history
       const stmt = db.prepare("INSERT INTO analysis_history (text, entities, source_type) VALUES (?, ?, ?)");
       stmt.run(text, JSON.stringify(entities), "web_ui");

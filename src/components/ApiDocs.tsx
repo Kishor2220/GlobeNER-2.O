@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/Button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/Card";
+import { Tooltip } from "./ui/Tooltip";
 
 export function ApiDocs() {
   const [copied, setCopied] = React.useState<string | null>(null);
@@ -61,10 +62,12 @@ export function ApiDocs() {
           <p className="text-zinc-400 text-sm md:text-base max-w-2xl">Integrate GlobeNER 2.0 intelligence directly into your applications with our RESTful API.</p>
         </div>
         <div className="flex items-center gap-3 bg-[#121212] p-2 rounded-xl border border-zinc-800/60 shadow-sm">
-          <Button variant="outline" size="sm" className="gap-2 shadow-sm">
-            <Key className="h-4 w-4 text-indigo-400" />
-            Generate API Key
-          </Button>
+          <Tooltip content="Create a new API key for authentication" position="top">
+            <Button variant="outline" size="sm" className="gap-2 shadow-sm">
+              <Key className="h-4 w-4 text-indigo-400" />
+              Generate API Key
+            </Button>
+          </Tooltip>
         </div>
       </div>
 
@@ -117,10 +120,12 @@ export function ApiDocs() {
                     <Terminal className="h-4 w-4 text-indigo-400" />
                     cURL Request
                   </h4>
-                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(curlExample, 'curl')} className="h-7 gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
-                    {copied === 'curl' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                    Copy
-                  </Button>
+                  <Tooltip content="Copy cURL command" position="top">
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(curlExample, 'curl')} className="h-7 gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
+                      {copied === 'curl' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      Copy
+                    </Button>
+                  </Tooltip>
                 </div>
                 <div className="relative group">
                   <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-lg blur opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -136,10 +141,12 @@ export function ApiDocs() {
                     <Code2 className="h-4 w-4 text-indigo-400" />
                     JSON Response
                   </h4>
-                  <Button variant="ghost" size="sm" onClick={() => copyToClipboard(responseExample, 'resp')} className="h-7 gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
-                    {copied === 'resp' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                    Copy
-                  </Button>
+                  <Tooltip content="Copy JSON response" position="top">
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(responseExample, 'resp')} className="h-7 gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800">
+                      {copied === 'resp' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      Copy
+                    </Button>
+                  </Tooltip>
                 </div>
                 <div className="relative group h-full">
                   <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-lg blur opacity-0 group-hover:opacity-100 transition-opacity duration-500" />

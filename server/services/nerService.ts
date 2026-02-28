@@ -2,33 +2,147 @@ import { ModelService } from "./modelService";
 import { RegexService } from "./regexService";
 
 export class NERService {
+  /**
+   * Main extraction pipeline with hybrid logic and post-processing
+   */
   static async extract(text: string, confidenceThreshold: number = 0.5): Promise<any[]> {
     if (!text || !text.trim()) return [];
+
+    // 0. Normalize Unicode Text
+    const normalizedText = text.normalize('NFC');
 
     try {
       // 1. Run Local Model Inference
       const classifier = await ModelService.getInstance();
-      const output = await classifier(text, {
-        aggregation_strategy: 'simple', // Merge subwords
+      const modelOutput = await classifier(normalizedText, {
+        aggregation_strategy: 'simple',
         ignore_labels: ['O']
       });
 
-      // 2. Map Output to Standard Format
-      // Manual aggregation since 'simple' strategy didn't work for this model
-      let entities = this.aggregateEntities(output, text);
+      // Log raw model output for debugging
+      console.log("[NERService] Raw Model Output:", JSON.stringify(modelOutput, null, 2));
 
-      // 3. Run Regex Extraction (Rule-based) - Using the new RegexService
-      const ruleEntities = RegexService.extract(text);
-      entities = [...entities, ...ruleEntities];
+      // 2. Map & Aggregate Model Entities
+      let modelEntities = this.aggregateEntities(modelOutput, normalizedText);
+      
+      // Normalize Model Labels
+      modelEntities = modelEntities.map(e => ({
+        ...e,
+        label: this.normalizeLabel(e.label),
+        source: 'model'
+      }));
 
-      // 4. Filter by Confidence
-      return entities.filter((e: any) => e.confidence >= confidenceThreshold);
+      // 3. Run Regex Extraction (Rule-based)
+      const regexEntities = RegexService.extract(normalizedText).map(e => ({
+        ...e,
+        source: 'regex'
+      }));
+      
+      console.log("[NERService] Regex Matches:", JSON.stringify(regexEntities, null, 2));
+
+      // 4. Merge & Resolve Overlaps
+      // Priority: Regex (Structured) > Model (Contextual)
+      let allEntities = [...modelEntities, ...regexEntities];
+      
+      // Filter by confidence (Model only, Regex is always 1.0)
+      allEntities = allEntities.filter(e => e.source === 'regex' || e.confidence >= confidenceThreshold);
+
+      // Resolve Overlaps
+      let finalEntities = this.resolveOverlaps(allEntities);
+
+      // 5. Final Validation & Normalization
+      finalEntities = finalEntities.filter(e => this.validateEntity(e));
+
+      console.log("[NERService] Final Filtered Entities:", JSON.stringify(finalEntities, null, 2));
+
+      return finalEntities;
 
     } catch (err: any) {
       console.error("[NERService] Extraction failed:", err.message);
       // Fallback to regex only if model fails
-      return RegexService.extract(text);
+      return RegexService.extract(normalizedText).filter(e => this.validateEntity(e));
     }
+  }
+
+  /**
+   * Normalizes labels to standard set
+   */
+  private static normalizeLabel(label: string): string {
+    const map: Record<string, string> = {
+      'PER': 'PER', 'PERSON': 'PER',
+      'ORG': 'ORG', 'ORGANIZATION': 'ORG',
+      'LOC': 'LOC', 'LOCATION': 'LOC', 'GPE': 'LOC',
+      'DATE': 'DATE',
+      'TIME': 'TIME',
+      'EMAIL': 'EMAIL',
+      'PHONE': 'PHONE',
+      'MONEY': 'MONEY',
+      'MISC': 'MISC'
+    };
+    return map[label.toUpperCase()] || label.toUpperCase();
+  }
+
+  /**
+   * Strict validation rules for entities
+   */
+  private static validateEntity(entity: any): boolean {
+    const text = entity.text.trim();
+    if (!text) return false;
+
+    switch (entity.label) {
+      case 'TIME':
+        // Must contain at least one digit and a separator or AM/PM
+        return /[\d\u0966-\u096F\u0CE6-\u0CEF]/.test(text) && /[:\s]/.test(text);
+      case 'DATE':
+        // Must contain digits
+        return /[\d\u0966-\u096F\u0CE6-\u0CEF]/.test(text);
+      case 'PHONE':
+        // Must have at least 7 digits
+        const digits = text.replace(/\D/g, '');
+        return digits.length >= 7;
+      case 'MONEY':
+        // Must contain currency symbol or code
+        return /[₹$€£¥]|USD|INR|EUR/.test(text);
+      case 'EMAIL':
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
+      default:
+        // Model entities (PER, LOC, ORG) should be at least 2 chars
+        return text.length >= 2;
+    }
+  }
+
+  /**
+   * Advanced overlap resolution
+   */
+  private static resolveOverlaps(entities: any[]): any[] {
+    if (entities.length === 0) return [];
+
+    // Sort: 1. Start index (asc), 2. Length (desc), 3. Priority (Regex > Model)
+    const sorted = entities.sort((a, b) => {
+      if (a.start !== b.start) return a.start - b.start;
+      const lenA = a.end - a.start;
+      const lenB = b.end - b.start;
+      if (lenA !== lenB) return lenB - lenA;
+      if (a.source !== b.source) return a.source === 'regex' ? -1 : 1;
+      return b.confidence - a.confidence;
+    });
+
+    const result: any[] = [];
+    let lastEnd = -1;
+
+    for (const entity of sorted) {
+      if (entity.start >= lastEnd) {
+        result.push(entity);
+        lastEnd = entity.end;
+      } else {
+        // Overlap detected. 
+        // If current is regex and previous was model, and they overlap significantly, 
+        // we might want to prefer regex. But our sort already handles priority if they start at same place.
+        // If they overlap but current starts later, we skip current because we prefer the earlier/longer one.
+      }
+    }
+
+    return result;
   }
 
   private static aggregateEntities(rawEntities: any[], text: string) {

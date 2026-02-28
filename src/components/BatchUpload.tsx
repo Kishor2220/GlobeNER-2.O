@@ -7,11 +7,13 @@ import {
   Loader2, 
   Database,
   FileJson,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Info
 } from "lucide-react";
 import axios from "axios";
 import { Button } from "./ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
+import { Tooltip } from "./ui/Tooltip";
 import { cn } from "../lib/utils";
 import { BatchResults } from "./BatchResults";
 
@@ -101,13 +103,15 @@ export function BatchUpload() {
           </div>
           <p className="text-zinc-400 text-sm md:text-base max-w-2xl">Upload multiple documents to extract entities at scale using parallel processing pipelines.</p>
         </div>
-        <div className="flex items-center gap-3 bg-[#121212] p-2 rounded-xl border border-zinc-800/60 shadow-sm">
-          <div className="flex items-center gap-2 px-3 py-1">
-            <Database className="h-4 w-4 text-indigo-400" />
-            <span className="text-xs font-medium text-zinc-300">Pipeline Active</span>
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
+        <Tooltip content="System is ready to process files" position="left">
+          <div className="flex items-center gap-3 bg-[#121212] p-2 rounded-xl border border-zinc-800/60 shadow-sm cursor-help">
+            <div className="flex items-center gap-2 px-3 py-1">
+              <Database className="h-4 w-4 text-indigo-400" />
+              <span className="text-xs font-medium text-zinc-300">Pipeline Active</span>
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse ml-1" />
+            </div>
           </div>
-        </div>
+        </Tooltip>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -164,9 +168,11 @@ export function BatchUpload() {
                           <span className="text-[10px] text-zinc-500 font-mono">{(file.size / 1024).toFixed(1)} KB</span>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => removeFile(i)} className="h-8 w-8 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all">
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <Tooltip content="Remove file" position="left">
+                        <Button variant="ghost" size="icon" onClick={() => removeFile(i)} className="h-8 w-8 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all">
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -190,10 +196,12 @@ export function BatchUpload() {
                       </div>
                     </div>
                   ) : (
-                    <Button onClick={processBatch} className="w-full shadow-lg shadow-indigo-500/20 gap-2">
-                      <Database className="h-4 w-4" />
-                      Process {files.length} Files
-                    </Button>
+                    <Tooltip content="Start processing all files in the queue" position="top">
+                      <Button onClick={processBatch} className="w-full shadow-lg shadow-indigo-500/20 gap-2">
+                        <Database className="h-4 w-4" />
+                        Process {files.length} Files
+                      </Button>
+                    </Tooltip>
                   )}
                 </div>
               </CardContent>

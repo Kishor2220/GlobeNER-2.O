@@ -6,6 +6,7 @@ import { TextAnalysis } from "./components/TextAnalysis";
 import { BatchUpload } from "./components/BatchUpload";
 import { Analytics } from "./components/Analytics";
 import { KnowledgeGraph } from "./components/KnowledgeGraph";
+import { ReliabilityDashboard } from "./components/ReliabilityDashboard";
 import { ApiDocs } from "./components/ApiDocs";
 import { Settings } from "./components/Settings";
 import { Button } from "./components/ui/Button";
@@ -56,6 +57,8 @@ export default function App() {
         return <Analytics />;
       case "graph":
         return <KnowledgeGraph />;
+      case "reliability":
+        return <ReliabilityDashboard />;
       case "docs":
         return <ApiDocs />;
       case "settings":

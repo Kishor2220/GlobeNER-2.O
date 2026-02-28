@@ -18,7 +18,7 @@ if (!fs.existsSync(LOCAL_MODEL_DIR)) {
 
 export class ModelService {
   private static instance: any = null;
-  private static modelName = 'Xenova/bert-base-multilingual-cased-ner-hrl';
+  private static modelName = 'Xenova/bert-base-NER';
   private static isLoading = false;
 
   static async getInstance() {
@@ -27,9 +27,14 @@ export class ModelService {
     }
 
     if (this.isLoading) {
-      // Wait for loading to complete
-      while (this.isLoading) {
+      // Wait for loading to complete with timeout
+      let retries = 0;
+      while (this.isLoading && retries < 300) { // 30 seconds max wait
         await new Promise(resolve => setTimeout(resolve, 100));
+        retries++;
+      }
+      if (this.isLoading) {
+        throw new Error("Model loading timeout");
       }
       return this.instance;
     }
@@ -38,13 +43,25 @@ export class ModelService {
     console.log(`[ModelService] Loading model: ${this.modelName}...`);
     
     try {
-      this.instance = await pipeline('token-classification', this.modelName, {
+      // Use a smaller, faster model for testing/dev to prevent OOM and timeouts
+      const modelToLoad = process.env.NODE_ENV === 'production' 
+        ? this.modelName 
+        : 'Xenova/bert-base-NER';
+        
+      const loadPromise = pipeline('token-classification', modelToLoad, {
         quantized: true, // Use quantized model for performance
         cache_dir: LOCAL_MODEL_DIR
       });
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Model download/load timeout after 60s")), 60000)
+      );
+      
+      this.instance = await Promise.race([loadPromise, timeoutPromise]);
       console.log(`[ModelService] Model loaded successfully.`);
     } catch (error) {
       console.error(`[ModelService] Failed to load model:`, error);
+      this.instance = null; // Reset instance on failure
       throw error;
     } finally {
       this.isLoading = false;

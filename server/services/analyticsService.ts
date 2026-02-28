@@ -21,32 +21,40 @@ export class AnalyticsService {
     return Object.entries(dist).map(([name, value]) => ({ name, value }));
   }
 
-  static getRelationships(dbRelationships: any[]) {
+  static getIntelligenceGraph(dbEntities: any[], dbRelationships: any[]) {
     const nodes: any[] = [];
     const links: any[] = [];
     const nodeMap = new Map();
 
-    dbRelationships.forEach(rel => {
-      const sourceId = `${rel.source_text}:${rel.source_type}`;
-      const targetId = `${rel.target_text}:${rel.target_type}`;
-
-      if (!nodeMap.has(sourceId)) {
-        nodeMap.set(sourceId, nodes.length);
-        nodes.push({ id: sourceId, name: rel.source_text, label: rel.source_type, value: 0 });
-      }
-      nodes[nodeMap.get(sourceId)].value += rel.strength;
-
-      if (!nodeMap.has(targetId)) {
-        nodeMap.set(targetId, nodes.length);
-        nodes.push({ id: targetId, name: rel.target_text, label: rel.target_type, value: 0 });
-      }
-      nodes[nodeMap.get(targetId)].value += rel.strength;
-
-      links.push({
-        source: sourceId,
-        target: targetId,
-        value: rel.strength
+    dbEntities.forEach(entity => {
+      const id = `${entity.entity_name}:${entity.entity_type}`;
+      nodeMap.set(id, nodes.length);
+      nodes.push({
+        id,
+        name: entity.entity_name,
+        label: entity.entity_type,
+        rank: entity.rank_score || 0,
+        frequency: entity.total_occurrence_count || 0,
+        confidence: entity.average_confidence || 0,
+        last_seen: entity.last_seen,
+        activity: entity.session_count || 0
       });
+    });
+
+    dbRelationships.forEach(rel => {
+      const sourceId = `${rel.source_name}:${rel.source_type}`;
+      const targetId = `${rel.target_name}:${rel.target_type}`;
+
+      if (nodeMap.has(sourceId) && nodeMap.has(targetId)) {
+        links.push({
+          source: sourceId,
+          target: targetId,
+          strength: rel.relationship_strength_score || 1,
+          frequency: rel.relationship_frequency || 0,
+          trend: rel.co_occurrence_trend || 'STABLE',
+          last_seen: rel.last_seen
+        });
+      }
     });
 
     return { nodes, links };

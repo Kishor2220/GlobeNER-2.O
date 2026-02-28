@@ -58,7 +58,9 @@ export class RegexService {
     this.runPattern(text, this.getTimePatterns(), "TIME", results);
 
     // 5. OTHER (Email, Phone, Money)
-    this.runPattern(text, this.getOtherPatterns(), null, results);
+    this.runPattern(text, [/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g], "EMAIL", results);
+    this.runPattern(text, [/(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g], "PHONE", results);
+    this.runPattern(text, [/([₹$€£¥]|USD|INR|EUR)\s?\d+([,.]\d+)?/g], "MONEY", results);
 
     // Deduplicate and resolve overlaps (prefer longer matches)
     return this.resolveOverlaps(results);
@@ -159,8 +161,7 @@ export class RegexService {
       // HH:mm:ss.SSS Z
       new RegExp(`(?<=^|[^\\d])${D}{1,2}:${D}{2}(?::${D}{2}(?:\\.${D}+)?)?(?:\\s*[aApP][mM])?(?:\\s*(?:Z|[+-]${D}{2}:?${D}{2}))?(?=[^\\d]|$)`, 'gi'),
       
-      // Compact: HHmmss
-      new RegExp(`(?<=^|[^\\d])${D}{4,9}(?=[^\\d]|$)`, 'g'),
+      // Removed overly broad HHmmss pattern to prevent mis-labeling numbers as TIME
     ];
   }
 
@@ -170,17 +171,6 @@ export class RegexService {
       /(?<=^|[^\d])\d{10}(?=[^\d]|$)/g,
       /(?<=^|[^\d])\d{13}(?=[^\d]|$)/g,
       /(?<=^|[^\d])\d{19}(?=[^\d]|$)/g,
-    ];
-  }
-
-  private static getOtherPatterns(): RegExp[] {
-    return [
-      // Email
-      /(?<label>EMAIL)[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
-      // Phone
-      /(?<label>PHONE)(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g,
-      // Money
-      /(?<label>MONEY)([₹$€£¥]|USD|INR|EUR)\s?\d+([,.]\d+)?/g,
     ];
   }
 
