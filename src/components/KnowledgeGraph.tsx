@@ -1,6 +1,7 @@
 import * as React from "react";
 import * as d3 from "d3";
 import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/Card";
 import { Loader2, Share2, RefreshCw, Network, ZoomIn, ZoomOut, Maximize, Target, Info, Shield, MapPin, Building2, User } from "lucide-react";
 import { Button } from "./ui/Button";
@@ -9,37 +10,33 @@ import { Tooltip } from "./ui/Tooltip";
 export function KnowledgeGraph() {
   const svgRef = React.useRef<SVGSVGElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const [data, setData] = React.useState<any>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [hoveredNode, setHoveredNode] = React.useState<any>(null);
   const [hoverPosition, setHoverPosition] = React.useState({ x: 0, y: 0 });
   const [isFocusMode, setIsFocusMode] = React.useState(false);
+  const isFocusModeRef = React.useRef(isFocusMode);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await axios.get("/api/analytics");
-      if (response.data.relationships && response.data.relationships.nodes.length > 0) {
-        setData(response.data.relationships);
-      } else {
-        setData({ nodes: [], links: [] });
+  React.useEffect(() => {
+    isFocusModeRef.current = isFocusMode;
+  }, [isFocusMode]);
+
+  const { data: graphData, isLoading, error: queryError, refetch } = useQuery({
+    queryKey: ['knowledgeGraph'],
+    queryFn: async () => {
+      const response = await axios.get("/api/analytics", { timeout: 5000 });
+      if (response.data?.relationships && Array.isArray(response.data.relationships.nodes) && response.data.relationships.nodes.length > 0) {
+        return response.data.relationships;
       }
-    } catch (error: any) {
-      console.error("Failed to fetch relationships", error);
-      setError("Unable to load knowledge graph data.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      return { nodes: [], links: [] };
+    },
+    staleTime: 30000,
+  });
+
+  const data = graphData;
+  const error = queryError ? (queryError as Error).message : null;
+  const fetchData = () => refetch();
 
   React.useEffect(() => {
-    fetchData();
-  }, []);
-
-  React.useEffect(() => {
-    if (!data || !svgRef.current || data.nodes.length === 0) return;
+    if (!data || !svgRef.current || !Array.isArray(data.nodes) || data.nodes.length === 0) return;
 
     const width = containerRef.current?.clientWidth || 800;
     const height = 600;
@@ -81,14 +78,14 @@ export function KnowledgeGraph() {
     (window as any).zoomFit = () => svg.transition().duration(750).call((zoom as any).transform, d3.zoomIdentity);
 
     const simulation = d3.forceSimulation(data.nodes)
-      .force("link", d3.forceLink(data.links).id((d: any) => d.id).distance(150))
+      .force("link", d3.forceLink(Array.isArray(data.links) ? data.links : []).id((d: any) => d.id).distance(150))
       .force("charge", d3.forceManyBody().strength(-400))
       .force("center", d3.forceCenter(width / 2, height / 2))
       .force("collide", d3.forceCollide().radius((d: any) => (d.rank * 3) + 40));
 
     const link = g.append("g")
       .selectAll("line")
-      .data(data.links)
+      .data(Array.isArray(data.links) ? data.links : [])
       .join("line")
       .attr("stroke", (d: any) => {
         if (d.trend === 'NEW') return "#34d399"; // emerald-400 for new
@@ -117,7 +114,7 @@ export function KnowledgeGraph() {
         setHoverPosition({ x: event.pageX, y: event.pageY });
         
         // Highlight connections on hover
-        if (!isFocusMode) {
+        if (!isFocusModeRef.current) {
           node.style("opacity", (n: any) => {
             const isConnected = data.links.some((l: any) => 
               (l.source.id === d.id && l.target.id === n.id) || 
@@ -137,7 +134,7 @@ export function KnowledgeGraph() {
       })
       .on("mouseout", () => {
         setHoveredNode(null);
-        if (!isFocusMode) {
+        if (!isFocusModeRef.current) {
           node.style("opacity", 1);
           link.style("opacity", (d: any) => {
             const lastSeenTime = new Date(d.last_seen).getTime();
@@ -262,7 +259,7 @@ export function KnowledgeGraph() {
         .on("drag", dragged)
         .on("end", dragended);
     }
-  }, [data, isFocusMode]);
+  }, [data]);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto pb-20">
@@ -364,7 +361,7 @@ export function KnowledgeGraph() {
             </div>
           )}
 
-          {data?.nodes.length === 0 && !isLoading && (
+          {(!data || !Array.isArray(data.nodes) || data.nodes.length === 0) && !isLoading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-12 text-zinc-500">
               <div className="h-16 w-16 rounded-2xl bg-zinc-900/50 border border-zinc-800/60 flex items-center justify-center mb-4">
                 <Share2 className="h-8 w-8 text-zinc-700" />

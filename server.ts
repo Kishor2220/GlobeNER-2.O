@@ -35,16 +35,9 @@ async function startServer() {
   console.log("[Server] Initializing GlobeNER 2.0 (Offline Mode)...");
 
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   app.use(express.json({ limit: '50mb' }));
-
-  // Preload model in background
-  ModelService.preload().then(() => {
-    console.log("[Server] Model preloaded and ready for inference.");
-  }).catch(err => {
-    console.warn("[Server] Model preload failed (will retry on first request):", err);
-  });
 
   // --- Production API Layer ---
 
@@ -356,6 +349,24 @@ async function startServer() {
     }
   });
 
+  let isReady = false;
+  app.use((req, res, next) => {
+    if (isReady || req.path.startsWith('/api/') || req.path === '/health') {
+      return next();
+    }
+    // Simple polling to wait for Vite
+    const checkReady = () => {
+      if (isReady) return next();
+      setTimeout(checkReady, 100);
+    };
+    checkReady();
+  });
+
+  // Start listening immediately so the platform knows we're up
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`GlobeNER 2.0 Production Server running on http://localhost:${PORT}`);
+  });
+
   // --- Vite / Static Serving ---
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -367,10 +378,8 @@ async function startServer() {
     app.use(express.static(path.join(__dirname, "dist")));
     app.get("*", (req, res) => res.sendFile(path.join(__dirname, "dist", "index.html")));
   }
-
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`GlobeNER 2.0 Production Server running on http://localhost:${PORT}`);
-  });
+  
+  isReady = true;
 }
 
 startServer();

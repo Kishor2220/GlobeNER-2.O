@@ -15,6 +15,9 @@ export default defineConfig(({mode}) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    optimizeDeps: {
+      include: ['react', 'react-dom', 'lucide-react', 'recharts', 'd3', 'axios', 'framer-motion', 'clsx', 'tailwind-merge']
+    },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: {

@@ -12,32 +12,59 @@ export class NERService {
     const normalizedText = text.normalize('NFC');
 
     try {
-      // 1. Run Local Model Inference
-      const classifier = await ModelService.getInstance();
-      const modelOutput = await classifier(normalizedText, {
-        aggregation_strategy: 'simple',
-        ignore_labels: ['O']
+      // 1. Run Regex Extraction (Rule-based) independently
+      const regexPromise = new Promise<any[]>((resolve) => {
+        // Use setImmediate to avoid blocking the event loop immediately
+        setImmediate(() => {
+          const entities = RegexService.extract(normalizedText).map(e => ({
+            ...e,
+            source: 'regex'
+          }));
+          resolve(entities);
+        });
       });
 
-      // Log raw model output for debugging
-      console.log("[NERService] Raw Model Output:", JSON.stringify(modelOutput, null, 2));
+      // 2. Run Local Model Inference with timeout
+      const modelPromise = (async () => {
+        try {
+          const classifier = await ModelService.getInstance();
+          const modelOutput = await classifier(normalizedText, {
+            aggregation_strategy: 'simple',
+            ignore_labels: ['O']
+          });
 
-      // 2. Map & Aggregate Model Entities
-      let modelEntities = this.aggregateEntities(modelOutput, normalizedText);
-      
-      // Normalize Model Labels
-      modelEntities = modelEntities.map(e => ({
-        ...e,
-        label: this.normalizeLabel(e.label),
-        source: 'model'
-      }));
+          // Log raw model output for debugging
+          console.log("[NERService] Raw Model Output:", JSON.stringify(modelOutput, null, 2));
 
-      // 3. Run Regex Extraction (Rule-based)
-      const regexEntities = RegexService.extract(normalizedText).map(e => ({
-        ...e,
-        source: 'regex'
-      }));
-      
+          // Map & Aggregate Model Entities
+          let modelEntities = this.aggregateEntities(modelOutput, normalizedText);
+          
+          // Normalize Model Labels
+          return modelEntities.map(e => ({
+            ...e,
+            label: this.normalizeLabel(e.label),
+            source: 'model'
+          }));
+        } catch (err) {
+          console.error("[NERService] Model extraction failed:", err);
+          return [];
+        }
+      })();
+
+      // 1.8-second timeout for the model to ensure total response < 2s
+      const timeoutPromise = new Promise<any[]>((_, reject) => 
+        setTimeout(() => reject(new Error("Model inference timeout")), 1800)
+      );
+
+      // Wait for both to complete or timeout
+      const [regexEntities, modelEntities] = await Promise.all([
+        regexPromise,
+        Promise.race([modelPromise, timeoutPromise]).catch(err => {
+          console.warn("[NERService] Model timed out or failed, falling back to regex only:", err.message);
+          return [];
+        })
+      ]);
+
       console.log("[NERService] Regex Matches:", JSON.stringify(regexEntities, null, 2));
 
       // 4. Merge & Resolve Overlaps
@@ -59,7 +86,7 @@ export class NERService {
 
     } catch (err: any) {
       console.error("[NERService] Extraction failed:", err.message);
-      // Fallback to regex only if model fails
+      // Fallback to regex only if everything fails
       return RegexService.extract(normalizedText).filter(e => this.validateEntity(e));
     }
   }
@@ -148,10 +175,23 @@ export class NERService {
   private static aggregateEntities(rawEntities: any[], text: string) {
     if (!rawEntities || rawEntities.length === 0) return [];
 
+    // If the pipeline already aggregated them (e.g., using aggregation_strategy: 'simple')
+    if (rawEntities[0].entity_group) {
+      return rawEntities.map(e => ({
+        text: e.word.trim(),
+        label: e.entity_group,
+        confidence: e.score,
+        start: e.start !== undefined ? e.start : text.indexOf(e.word.trim()),
+        end: e.end !== undefined ? e.end : text.indexOf(e.word.trim()) + e.word.trim().length
+      }));
+    }
+
     const aggregated: any[] = [];
     let currentEntity: any = null;
 
     for (const token of rawEntities) {
+      if (!token.entity) continue;
+      
       const entityType = token.entity.replace(/^[BI]-/, '');
       const isStart = token.entity.startsWith('B-');
       
@@ -173,19 +213,11 @@ export class NERService {
         };
       } else if (currentEntity && currentEntity.label === entityType) {
         // Append to current entity
-        // Handle subwords (##) if applicable, though BERT multilingual usually doesn't use ## for whole words?
-        // Actually BERT uses ##.
         if (token.word.startsWith('##')) {
           currentEntity.text += token.word.substring(2);
         } else {
-          // Check if we should add space?
-          // It's hard to know without offsets.
-          // We'll reconstruct text later or just join with space for now, 
-          // but better to use the original text to find the span.
           currentEntity.text += " " + token.word;
         }
-        // Average confidence? Or max? Or min?
-        // Let's take min for strictness, or average.
         currentEntity.confidence = (currentEntity.confidence * currentEntity.tokens.length + token.score) / (currentEntity.tokens.length + 1);
         currentEntity.tokens.push(token);
       }
@@ -197,45 +229,14 @@ export class NERService {
     // Now find offsets in original text
     let lastIndex = 0;
     return aggregated.map(entity => {
-      // Clean up text (remove spaces around punctuation if needed, but our reconstruction is rough)
-      // Better strategy: Find the sequence of tokens in the text.
-      // But tokens might be modified (e.g. ##).
-      // Let's search for the first token's word, then extend to the last token's word.
-      
-      // Simple approach: Search for the reconstructed text (ignoring punctuation spacing issues)
-      // This is fragile.
-      
-      // Robust approach: Search for the first token, then ensure subsequent tokens follow.
-      // But we don't have offsets for tokens.
-      
-      // Let's try to find the "text" we built.
-      // If it fails, we might need a fuzzy search or just accept the rough text.
-      
-      // Fix for punctuation: "Inc ." -> "Inc."
-      // We can try to find the exact substring in text that matches the sequence of tokens.
-      
-      // For now, let's just search for the text starting from lastIndex.
-      // We might need to normalize spaces.
-      
-      // Heuristic: Remove spaces before punctuation in our constructed text?
-      // Or just search for the tokens individually?
-      
-      // Let's try to find the span that covers all tokens.
       let start = -1;
       let end = -1;
       
-      // Find start of first token
       const firstToken = entity.tokens[0].word.replace(/^##/, '');
       const startIdx = text.indexOf(firstToken, lastIndex);
       
       if (startIdx !== -1) {
         start = startIdx;
-        // Find end of last token
-        const lastToken = entity.tokens[entity.tokens.length - 1].word.replace(/^##/, '');
-        // Search for last token after start
-        // Be careful with "New York" -> "New" and "York".
-        // We need to find "York" after "New".
-        
         let currentSearchIdx = start + firstToken.length;
         for (let i = 1; i < entity.tokens.length; i++) {
           const tokenText = entity.tokens[i].word.replace(/^##/, '');
@@ -246,7 +247,6 @@ export class NERService {
         }
         end = currentSearchIdx;
         
-        // Update entity text to match exactly what's in the source
         entity.text = text.substring(start, end);
         entity.start = start;
         entity.end = end;
@@ -255,6 +255,6 @@ export class NERService {
       
       delete entity.tokens;
       return entity;
-    });
+    }).filter(e => e.start !== -1);
   }
 }

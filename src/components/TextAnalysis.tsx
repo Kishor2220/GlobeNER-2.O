@@ -50,11 +50,12 @@ export function TextAnalysis() {
         text, 
         confidenceThreshold: confidence 
       }, {
-        timeout: 120000 // Increased timeout for local inference (2 mins)
+        timeout: 5000 // 5 seconds timeout
       });
-      setResult(response.data);
+      console.log("[TextAnalysis] API Response:", response.data);
+      setResult(response.data || null);
     } catch (err: any) {
-      console.error("Analysis failed", err);
+      console.error("[TextAnalysis] Analysis failed", err);
       if (err.code === 'ECONNABORTED') {
         setError("The request timed out. The local model might be warming up or the text is too large. Please try again in a moment.");
       } else {
@@ -73,6 +74,7 @@ export function TextAnalysis() {
 
   const renderHighlightedText = () => {
     if (!result) return text;
+    if (!Array.isArray(result.entities)) return text;
 
     const entities = [...result.entities].sort((a, b) => a.start - b.start);
     const parts = [];
@@ -246,7 +248,7 @@ export function TextAnalysis() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {result.entities.length === 0 ? (
+                  {!Array.isArray(result.entities) || result.entities.length === 0 ? (
                     <tr>
                       <td colSpan={3} className="px-6 py-20 text-center text-zinc-700">
                         <div className="flex flex-col items-center justify-center gap-4">

@@ -15,6 +15,7 @@ import {
   Line
 } from "recharts";
 import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/Card";
 import { Button } from "./ui/Button";
 import { Tooltip } from "./ui/Tooltip";
@@ -45,54 +46,41 @@ import {
 } from "lucide-react";
 
 export function Analytics() {
-  const [data, setData] = React.useState<any>(null);
-  const [alerts, setAlerts] = React.useState<any[]>([]);
-  const [behaviorData, setBehaviorData] = React.useState<any[]>([]);
   const [alertFilter, setAlertFilter] = React.useState("ALL");
   const [selectedAlert, setSelectedAlert] = React.useState<any>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
 
-  const fetchAnalytics = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await axios.get("/api/analytics");
-      setData(response.data);
-    } catch (error: any) {
-      console.error("Failed to fetch analytics", error);
-      setError("Unable to load analytics data. Please try again later.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { data: analyticsData, isLoading: isLoadingAnalytics, error: analyticsError } = useQuery({
+    queryKey: ['analytics'],
+    queryFn: async () => {
+      const response = await axios.get("/api/analytics", { timeout: 5000 });
+      return response.data || {};
+    },
+    staleTime: 30000,
+  });
 
-  const fetchAlerts = async () => {
-    try {
-      const response = await axios.get(`/api/alerts?severity=${alertFilter}`);
-      setAlerts(response.data);
-    } catch (err) {
-      console.error("Failed to fetch alerts", err);
-    }
-  };
+  const { data: alertsData } = useQuery({
+    queryKey: ['alerts', alertFilter],
+    queryFn: async () => {
+      const response = await axios.get(`/api/alerts?severity=${alertFilter}`, { timeout: 5000 });
+      return Array.isArray(response.data) ? response.data : [];
+    },
+    staleTime: 30000,
+  });
 
-  const fetchBehavior = async () => {
-    try {
-      const response = await axios.get("/api/behavior");
-      setBehaviorData(response.data);
-    } catch (err) {
-      console.error("Failed to fetch behavior data", err);
-    }
-  };
+  const { data: behaviorDataArray } = useQuery({
+    queryKey: ['behavior'],
+    queryFn: async () => {
+      const response = await axios.get("/api/behavior", { timeout: 5000 });
+      return Array.isArray(response.data) ? response.data : [];
+    },
+    staleTime: 30000,
+  });
 
-  React.useEffect(() => {
-    fetchAnalytics();
-    fetchBehavior();
-  }, []);
-
-  React.useEffect(() => {
-    fetchAlerts();
-  }, [alertFilter]);
+  const data = analyticsData;
+  const alerts = alertsData || [];
+  const behaviorData = behaviorDataArray || [];
+  const isLoading = isLoadingAnalytics;
+  const error = analyticsError ? (analyticsError as Error).message : null;
 
   if (isLoading) {
     return (
@@ -118,13 +106,15 @@ export function Analytics() {
     );
   }
 
-  const entityData = data?.distribution || [];
-  const frequencyData = data?.frequency?.slice(0, 10) || [];
-  const trendingData = data?.trending || [];
-  const activeData = data?.active || [];
+  const entityData = Array.isArray(data?.distribution) ? data.distribution : [];
+  const frequencyData = Array.isArray(data?.frequency) ? data.frequency.slice(0, 10) : [];
+  const trendingData = Array.isArray(data?.trending) ? data.trending : [];
+  const activeData = Array.isArray(data?.active) ? data.active : [];
   const activityData = data?.activity || { trends: [], timeline: [], tracker: [] };
   const relationshipEvolution = data?.relationship_evolution || { new: [], strengthened: [], fading: [] };
-  const totalProcessed = data?.total_processed || 0;
+  const totalProcessed = typeof data?.total_processed === 'number' ? data.total_processed : 0;
+  
+  const totalEntityValue = entityData.reduce((acc: number, curr: any) => acc + (curr?.value || 0), 0);
 
   if (totalProcessed === 0 && !isLoading) {
     return (
@@ -237,20 +227,22 @@ export function Analytics() {
             <div className="h-[220px] w-full relative flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie
-                    data={entityData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={90}
-                    paddingAngle={8}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {entityData.map((entry: any, index: number) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} fillOpacity={0.8} />
-                    ))}
-                  </Pie>
+                  {entityData.length > 0 && (
+                    <Pie
+                      data={entityData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={90}
+                      paddingAngle={8}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {entityData.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} fillOpacity={0.8} />
+                      ))}
+                    </Pie>
+                  )}
                   <RechartsTooltip 
                     contentStyle={{ backgroundColor: "#0a0a0a", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.05)", boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.5)", color: "#f4f4f5" }}
                     itemStyle={{ fontWeight: 600, fontSize: '12px' }}
@@ -259,25 +251,28 @@ export function Analytics() {
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-4xl font-bold text-zinc-100 font-mono">
-                  {entityData.reduce((acc: number, curr: any) => acc + curr.value, 0)}
+                  {totalEntityValue}
                 </span>
                 <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.3em] mt-2">Total Signals</span>
               </div>
             </div>
             
             <div className="mt-10 w-full space-y-4 flex-1 overflow-y-auto custom-scrollbar pr-2">
-              {entityData.map((item: any, i: number) => (
-                <div key={i} className="flex items-center justify-between text-sm p-3 rounded-xl bg-white/[0.02] border border-white/[0.03] hover:border-white/10 transition-all group">
-                  <div className="flex items-center gap-4">
-                    <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                    <span className="text-zinc-400 font-bold uppercase tracking-widest text-[10px] group-hover:text-zinc-200 transition-colors">{item.name}</span>
+              {entityData.map((item: any, i: number) => {
+                const percentage = totalEntityValue > 0 ? ((item.value || 0) / totalEntityValue) * 100 : 0;
+                return (
+                  <div key={i} className="flex items-center justify-between text-sm p-3 rounded-xl bg-white/[0.02] border border-white/[0.03] hover:border-white/10 transition-all group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-2.5 h-2.5 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-zinc-400 font-bold uppercase tracking-widest text-[10px] group-hover:text-zinc-200 transition-colors">{item.name || 'Unknown'}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] text-zinc-600 font-mono font-bold">{percentage.toFixed(1)}%</span>
+                      <span className="font-mono font-bold text-zinc-200 bg-white/[0.05] px-3 py-1 rounded-lg min-w-[50px] text-center border border-white/[0.05]">{item.value || 0}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="text-[10px] text-zinc-600 font-mono font-bold">{((item.value / entityData.reduce((acc: number, curr: any) => acc + curr.value, 0)) * 100).toFixed(1)}%</span>
-                    <span className="font-mono font-bold text-zinc-200 bg-white/[0.05] px-3 py-1 rounded-lg min-w-[50px] text-center border border-white/[0.05]">{item.value}</span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -294,50 +289,56 @@ export function Analytics() {
           </CardHeader>
           <CardContent className="p-8">
             <div className="h-[250px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={activityData.timeline}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
-                  <XAxis 
-                    dataKey="timestamp" 
-                    stroke="#3f3f46" 
-                    fontSize={10} 
-                    tickFormatter={(val) => {
-                      const date = new Date(val);
-                      return `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:00`;
-                    }}
-                  />
-                  <YAxis stroke="#3f3f46" fontSize={10} />
-                  <RechartsTooltip 
-                    content={({ active, payload, label }: any) => {
-                      if (active && payload && payload.length) {
-                        const date = new Date(label);
-                        return (
-                          <div className="intel-card p-3 min-w-[150px]">
-                            <p className="text-[10px] text-zinc-500 mb-2 font-mono uppercase tracking-widest border-b border-white/5 pb-1">{date.toLocaleString()}</p>
-                            <p className="text-sm font-bold text-sky-400 font-mono">{payload[0].value} SIGNALS</p>
-                            {payload[0].payload.entities && (
-                              <div className="mt-2 flex flex-wrap gap-1">
-                                {payload[0].payload.entities.map((e: string, i: number) => (
-                                  <span key={i} className="text-[8px] bg-white/[0.05] text-zinc-400 px-1.5 py-0.5 rounded border border-white/[0.05]">{e}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="count" 
-                    stroke="#38bdf8" 
-                    strokeWidth={3} 
-                    dot={{ r: 4, fill: "#38bdf8", strokeWidth: 0 }}
-                    activeDot={{ r: 6, strokeWidth: 0, fill: "#fff" }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {Array.isArray(activityData?.timeline) && activityData.timeline.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={activityData.timeline}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
+                    <XAxis 
+                      dataKey="timestamp" 
+                      stroke="#3f3f46" 
+                      fontSize={10} 
+                      tickFormatter={(val) => {
+                        const date = new Date(val);
+                        return `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:00`;
+                      }}
+                    />
+                    <YAxis stroke="#3f3f46" fontSize={10} />
+                    <RechartsTooltip 
+                      content={({ active, payload, label }: any) => {
+                        if (active && payload && payload.length) {
+                          const date = new Date(label);
+                          return (
+                            <div className="intel-card p-3 min-w-[150px]">
+                              <p className="text-[10px] text-zinc-500 mb-2 font-mono uppercase tracking-widest border-b border-white/5 pb-1">{date.toLocaleString()}</p>
+                              <p className="text-sm font-bold text-sky-400 font-mono">{payload[0].value} SIGNALS</p>
+                              {payload[0].payload.entities && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {payload[0].payload.entities.map((e: string, i: number) => (
+                                    <span key={i} className="text-[8px] bg-white/[0.05] text-zinc-400 px-1.5 py-0.5 rounded border border-white/[0.05]">{e}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="count" 
+                      stroke="#38bdf8" 
+                      strokeWidth={3} 
+                      dot={{ r: 4, fill: "#38bdf8", strokeWidth: 0 }}
+                      activeDot={{ r: 6, strokeWidth: 0, fill: "#fff" }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-zinc-500 text-sm">
+                  No timeline data available
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

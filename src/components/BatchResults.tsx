@@ -95,7 +95,7 @@ export function BatchResults({ results }: BatchResultsProps) {
 
   const renderHighlightedText = (text: string, entities: Entity[]) => {
     if (!text) return null;
-    if (!entities || entities.length === 0) return text;
+    if (!Array.isArray(entities) || entities.length === 0) return text;
 
     const sortedEntities = [...entities].sort((a, b) => a.start - b.start);
     const parts = [];

@@ -29,12 +29,12 @@ export class ModelService {
     if (this.isLoading) {
       // Wait for loading to complete with timeout
       let retries = 0;
-      while (this.isLoading && retries < 300) { // 30 seconds max wait
+      while (this.isLoading && retries < 100) { // 10 seconds max wait
         await new Promise(resolve => setTimeout(resolve, 100));
         retries++;
       }
       if (this.isLoading) {
-        throw new Error("Model loading timeout");
+        throw new Error("Model warming up. Please try again in a few moments.");
       }
       return this.instance;
     }
@@ -51,20 +51,33 @@ export class ModelService {
       const loadPromise = pipeline('token-classification', modelToLoad, {
         quantized: true, // Use quantized model for performance
         cache_dir: LOCAL_MODEL_DIR
+      }).then(model => {
+        this.instance = model;
+        this.isLoading = false;
+        console.log(`[ModelService] Model loaded successfully.`);
+        return model;
+      }).catch(err => {
+        this.isLoading = false;
+        this.instance = null;
+        console.error(`[ModelService] Background model load failed:`, err);
+        throw err;
       });
       
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Model download/load timeout after 60s")), 60000)
+        setTimeout(() => reject(new Error("Model download/load timeout after 10s")), 10000)
       );
       
-      this.instance = await Promise.race([loadPromise, timeoutPromise]);
-      console.log(`[ModelService] Model loaded successfully.`);
-    } catch (error) {
-      console.error(`[ModelService] Failed to load model:`, error);
-      this.instance = null; // Reset instance on failure
+      await Promise.race([loadPromise, timeoutPromise]);
+    } catch (error: any) {
+      if (error.message.includes("timeout")) {
+        console.warn(`[ModelService] Model load timed out, continuing in background...`);
+        throw new Error("Model warming up. Please try again in a few moments.");
+      } else {
+        console.error(`[ModelService] Failed to load model:`, error);
+        this.instance = null; // Reset instance on failure
+        this.isLoading = false;
+      }
       throw error;
-    } finally {
-      this.isLoading = false;
     }
 
     return this.instance;
