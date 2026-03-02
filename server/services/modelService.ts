@@ -1,14 +1,15 @@
 import { pipeline, env } from '@xenova/transformers';
 import path from 'path';
 import fs from 'fs';
+import { logger } from '../logger';
+import { CONFIG } from '../config';
+import { healthService, ServiceStatus } from './healthService';
 
 // Configure local model path
-const LOCAL_MODEL_DIR = process.env.LOCAL_MODEL_PATH 
-  ? path.resolve(process.cwd(), process.env.LOCAL_MODEL_PATH)
-  : path.resolve(process.cwd(), 'local_models');
+const LOCAL_MODEL_DIR = path.resolve(process.cwd(), CONFIG.MODEL.LOCAL_PATH);
 
 env.localModelPath = LOCAL_MODEL_DIR;
-env.allowRemoteModels = true; // Allow downloading on first run, then use local cache
+env.allowRemoteModels = true; 
 env.allowLocalModels = true;
 
 // Ensure local model directory exists
@@ -18,7 +19,6 @@ if (!fs.existsSync(LOCAL_MODEL_DIR)) {
 
 export class ModelService {
   private static instance: any = null;
-  private static modelName = 'Xenova/bert-base-NER';
   private static isLoading = false;
 
   static async getInstance() {
@@ -29,7 +29,8 @@ export class ModelService {
     if (this.isLoading) {
       // Wait for loading to complete with timeout
       let retries = 0;
-      while (this.isLoading && retries < 100) { // 10 seconds max wait
+      const maxRetries = (CONFIG.MODEL.TIMEOUT_MS / 100);
+      while (this.isLoading && retries < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, 100));
         retries++;
       }
@@ -40,42 +41,40 @@ export class ModelService {
     }
 
     this.isLoading = true;
-    console.log(`[ModelService] Loading model: ${this.modelName}...`);
+    healthService.updateStatus('model', ServiceStatus.LOADING);
+    logger.info(`Loading model: ${CONFIG.MODEL.NAME}...`, 'ModelService');
     
     try {
-      // Use a smaller, faster model for testing/dev to prevent OOM and timeouts
-      const modelToLoad = process.env.NODE_ENV === 'production' 
-        ? this.modelName 
-        : 'Xenova/bert-base-NER';
-        
-      const loadPromise = pipeline('token-classification', modelToLoad, {
-        quantized: true, // Use quantized model for performance
+      const loadPromise = pipeline('token-classification', CONFIG.MODEL.NAME, {
+        quantized: true,
         cache_dir: LOCAL_MODEL_DIR
       }).then(model => {
         this.instance = model;
         this.isLoading = false;
-        console.log(`[ModelService] Model loaded successfully.`);
+        healthService.updateStatus('model', ServiceStatus.OK);
+        logger.info(`Model loaded successfully.`, 'ModelService');
         return model;
       }).catch(err => {
         this.isLoading = false;
         this.instance = null;
-        console.error(`[ModelService] Background model load failed:`, err);
+        healthService.updateStatus('model', ServiceStatus.FAIL);
+        logger.error(`Model load failed:`, 'ModelService', err);
         throw err;
       });
       
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Model download/load timeout after 10s")), 10000)
+        setTimeout(() => reject(new Error(`Model load timeout after ${CONFIG.MODEL.TIMEOUT_MS}ms`)), CONFIG.MODEL.TIMEOUT_MS)
       );
       
       await Promise.race([loadPromise, timeoutPromise]);
     } catch (error: any) {
+      this.isLoading = false;
       if (error.message.includes("timeout")) {
-        console.warn(`[ModelService] Model load timed out, continuing in background...`);
+        logger.warn(`Model load timed out, continuing in background...`, 'ModelService');
         throw new Error("Model warming up. Please try again in a few moments.");
       } else {
-        console.error(`[ModelService] Failed to load model:`, error);
-        this.instance = null; // Reset instance on failure
-        this.isLoading = false;
+        logger.error(`Failed to load model:`, 'ModelService', error);
+        this.instance = null;
       }
       throw error;
     }
@@ -84,6 +83,10 @@ export class ModelService {
   }
 
   static async preload() {
-    await this.getInstance();
+    try {
+      await this.getInstance();
+    } catch (err: any) {
+      logger.warn(`Preload failed: ${err.message}. Model will load on first use.`, 'ModelService');
+    }
   }
 }

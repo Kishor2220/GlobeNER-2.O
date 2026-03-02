@@ -1,5 +1,7 @@
 import { ModelService } from "./modelService";
 import { RegexService } from "./regexService";
+import { logger } from "../logger";
+import { CONFIG } from "../config";
 
 export class NERService {
   /**
@@ -16,11 +18,16 @@ export class NERService {
       const regexPromise = new Promise<any[]>((resolve) => {
         // Use setImmediate to avoid blocking the event loop immediately
         setImmediate(() => {
-          const entities = RegexService.extract(normalizedText).map(e => ({
-            ...e,
-            source: 'regex'
-          }));
-          resolve(entities);
+          try {
+            const entities = RegexService.extract(normalizedText).map(e => ({
+              ...e,
+              source: 'regex'
+            }));
+            resolve(entities);
+          } catch (err) {
+            logger.error("Regex extraction failed", "NERService", err);
+            resolve([]);
+          }
         });
       });
 
@@ -33,9 +40,6 @@ export class NERService {
             ignore_labels: ['O']
           });
 
-          // Log raw model output for debugging
-          console.log("[NERService] Raw Model Output:", JSON.stringify(modelOutput, null, 2));
-
           // Map & Aggregate Model Entities
           let modelEntities = this.aggregateEntities(modelOutput, normalizedText);
           
@@ -46,29 +50,26 @@ export class NERService {
             source: 'model'
           }));
         } catch (err) {
-          console.error("[NERService] Model extraction failed:", err);
+          logger.error("Model extraction failed", "NERService", err);
           return [];
         }
       })();
 
-      // 1.8-second timeout for the model to ensure total response < 2s
+      // Inference timeout from config
       const timeoutPromise = new Promise<any[]>((_, reject) => 
-        setTimeout(() => reject(new Error("Model inference timeout")), 1800)
+        setTimeout(() => reject(new Error("Model inference timeout")), CONFIG.MODEL.INFERENCE_TIMEOUT_MS)
       );
 
       // Wait for both to complete or timeout
       const [regexEntities, modelEntities] = await Promise.all([
         regexPromise,
         Promise.race([modelPromise, timeoutPromise]).catch(err => {
-          console.warn("[NERService] Model timed out or failed, falling back to regex only:", err.message);
+          logger.warn(`Model timed out or failed: ${err.message}`, "NERService");
           return [];
         })
       ]);
 
-      console.log("[NERService] Regex Matches:", JSON.stringify(regexEntities, null, 2));
-
       // 4. Merge & Resolve Overlaps
-      // Priority: Regex (Structured) > Model (Contextual)
       let allEntities = [...modelEntities, ...regexEntities];
       
       // Filter by confidence (Model only, Regex is always 1.0)
@@ -80,12 +81,10 @@ export class NERService {
       // 5. Final Validation & Normalization
       finalEntities = finalEntities.filter(e => this.validateEntity(e));
 
-      console.log("[NERService] Final Filtered Entities:", JSON.stringify(finalEntities, null, 2));
-
       return finalEntities;
 
     } catch (err: any) {
-      console.error("[NERService] Extraction failed:", err.message);
+      logger.error("Extraction failed critically", "NERService", err);
       // Fallback to regex only if everything fails
       return RegexService.extract(normalizedText).filter(e => this.validateEntity(e));
     }

@@ -1,63 +1,92 @@
-# GlobeNER 2.0: Production-Grade Multilingual NER Platform
+# GlobeNER 2.0: Enterprise-Grade Multilingual Intelligence Platform
 
-GlobeNER 2.0 is a scalable, API-first text intelligence system designed for high-precision Named Entity Recognition (NER) across multiple languages. It uses the state-of-the-art XLM-RoBERTa multilingual model via the Hugging Face Router API for inference.
+GlobeNER 2.0 is a high-performance, privacy-focused text intelligence system designed for high-precision Named Entity Recognition (NER), relationship mapping, and knowledge graph visualization. It combines state-of-the-art local transformer models with a production-grade regex validation engine.
 
-## Core Architecture
+## 🚀 Core Architecture
 
-- **Backend**: Node.js (Express) with Hugging Face-powered NER inference engine (XLM-RoBERTa via Router API).
-- **Frontend**: React (Vite) with Tailwind CSS, ShadCN-inspired UI, and Recharts.
-- **Database**: SQLite (Better-SQLite3) for analytics and history persistence.
-- **Inference**: High-performance multilingual NER supporting standard entity labels (PER, LOC, ORG).
+- **Hybrid Intelligence Engine**:
+  - **Contextual Model**: `Xenova/bert-base-NER` (Local Transformers) for PER, ORG, and LOC detection.
+  - **Validation Layer**: Production-grade Regex Engine for global formats of MONEY, PHONE, DATE, TIME, and EMAIL.
+- **Stability Architecture**:
+  - **Non-Blocking Boot**: Instant server start with background model preloading.
+  - **Health Monitoring**: Real-time service status tracking (Database, Model, Analytics, Memory).
+  - **Centralized Governance**: Unified configuration and structured logging.
+- **Backend**: Node.js (Express) with local inference (no external API calls for NER).
+- **Frontend**: React (Vite) with a high-density "Technical Dashboard" aesthetic, Recharts, and Knowledge Graph visualization.
+- **Database**: SQLite (Better-SQLite3) for persistent memory, analytics, and relationship tracking.
 
-## Key Features
+## ✨ Key Features
 
-- **Multilingual Support**: High accuracy across Indic languages (Hindi, Tamil, Bengali, etc.) and English.
-- **Real-time Analysis**: Interactive text input with live entity highlighting.
-- **Batch Processing**: Scalable upload for large document sets (.txt, .csv, .json).
-- **Analytics Dashboard**: Visual insights into entity distribution and language trends.
-- **Developer API**: Robust REST API with full documentation and cURL examples.
+- **Global Entity Detection**:
+  - **MONEY**: Supports 15+ currency symbols, ISO codes, and financial suffixes (Lakh, Crore, Million).
+  - **PHONE**: Detects international and local formats with strict digit length validation (7-15 digits).
+  - **DATE/TIME**: Supports ISO 8601, numeric formats, and multilingual numerals (Hindi, Kannada, Arabic-Indic, etc.).
+- **Multilingual Support**: Unicode digit normalization and global format detection for high accuracy across Indic and international languages.
+- **Knowledge Graph**: Real-time visualization of entity relationships and co-occurrence trends.
+- **Reliability Dashboard**: Built-in monitoring for service health, memory usage, and extraction performance.
+- **Batch & File Processing**: Scalable analysis for .txt, .csv, and .json documents.
 
-## Setup Instructions
+## 🛠️ Setup Instructions
 
 1. **Environment Variables**:
-   Create a `.env` file with your Gemini API Key:
-   ```env
-   GEMINI_API_KEY=your_api_key_here
+   Copy `.env.example` to `.env` and configure your settings:
+   ```bash
+   cp .env.example .env
    ```
+   *Note: `GEMINI_API_KEY` is currently optional and reserved for future advanced reasoning features.*
 
 2. **Installation**:
    ```bash
    npm install
    ```
 
-3. **Development**:
+3. **Pre-download Intelligence Model**:
+   This step ensures the local transformer model is cached for offline use:
+   ```bash
+   npm run download:model
+   ```
+
+4. **Development**:
    ```bash
    npm run dev
    ```
 
-4. **Production Build**:
+5. **Production Build**:
    ```bash
    npm run build
    npm start
    ```
 
-## API Usage
+## 📡 API Usage
+
+### Health Check
+`GET /health`
+Returns the real-time status of all intelligence services.
 
 ### Analyze Text
 `POST /api/analyze`
 ```json
 {
-  "text": "Narendra Modi visited New Delhi.",
+  "text": "The transaction of ₹5,00,000 was processed on 15 Aug 2023.",
   "confidenceThreshold": 0.5
 }
 ```
 
-## Project Roadmap
+### Batch Extraction
+`POST /api/batch-extract`
+```json
+{
+  "texts": ["Text 1", "Text 2"],
+  "threshold": 0.5
+}
+```
 
-- [ ] Support for custom fine-tuned model weights.
-- [ ] Real-time streaming analysis for long documents.
-- [ ] Advanced entity types (DATE, MONEY, PERCENT).
-- [ ] Multi-user collaboration and team workspaces.
+## 🛡️ Reliability & Security
 
-## License
+- **Local Inference**: All NER processing happens on your infrastructure. No text data is sent to external APIs for extraction.
+- **Request Timeouts**: 5-second API timeout protection.
+- **Memory Safety**: Enforced batch limits and structured resource management.
+- **Error Boundaries**: Multi-level React Error Boundaries to prevent UI crashes.
+
+## 📜 License
 Apache-2.0

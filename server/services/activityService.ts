@@ -1,4 +1,4 @@
-import { db } from "./memoryService";
+import { db } from "../db";
 
 export interface ActivityTrend {
   entity_name: string;

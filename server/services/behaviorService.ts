@@ -1,6 +1,4 @@
-import Database from "better-sqlite3";
-
-const db = new Database("globerner_v2.db");
+import { db } from "../db";
 
 export enum BehaviorClassification {
   HIGHLY_ACTIVE = "Highly Active",

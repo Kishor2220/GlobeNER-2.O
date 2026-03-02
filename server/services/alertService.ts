@@ -1,4 +1,4 @@
-import { db } from "./memoryService";
+import { db } from "../db";
 
 export enum AlertSeverity {
   LOW = "LOW",

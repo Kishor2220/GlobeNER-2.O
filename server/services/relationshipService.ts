@@ -1,4 +1,4 @@
-import { db } from "./memoryService";
+import { db } from "../db";
 import { AlertService } from "./alertService";
 
 export class RelationshipService {
