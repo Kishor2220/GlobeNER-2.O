@@ -1,5 +1,6 @@
 import { ModelService } from "./modelService";
 import { RegexService } from "./regexService";
+import { OverlapResolutionService } from "./overlapResolutionService";
 import { logger } from "../logger";
 import { CONFIG } from "../config";
 
@@ -10,8 +11,8 @@ export class NERService {
   static async extract(text: string, confidenceThreshold: number = 0.5): Promise<any[]> {
     if (!text || !text.trim()) return [];
 
-    // 0. Normalize Unicode Text
-    const normalizedText = text.normalize('NFC');
+    // 0. Normalize Unicode Text (NFKC) and clean
+    const normalizedText = RegexService.normalizeText(text);
 
     try {
       // 1. Run Regex Extraction (Rule-based) independently
@@ -75,8 +76,8 @@ export class NERService {
       // Filter by confidence (Model only, Regex is always 1.0)
       allEntities = allEntities.filter(e => e.source === 'regex' || e.confidence >= confidenceThreshold);
 
-      // Resolve Overlaps
-      let finalEntities = this.resolveOverlaps(allEntities);
+      // Resolve Overlaps using dedicated service
+      let finalEntities = OverlapResolutionService.resolve(allEntities);
 
       // 5. Final Validation & Normalization
       finalEntities = finalEntities.filter(e => this.validateEntity(e));
@@ -103,6 +104,7 @@ export class NERService {
       'EMAIL': 'EMAIL',
       'PHONE': 'PHONE',
       'MONEY': 'MONEY',
+      'DATE_OF_BIRTH': 'DATE_OF_BIRTH',
       'MISC': 'MISC'
     };
     return map[label.toUpperCase()] || label.toUpperCase();
@@ -122,53 +124,22 @@ export class NERService {
       case 'DATE':
         // Must contain digits
         return /[\d\u0966-\u096F\u0CE6-\u0CEF]/.test(text);
+      case 'DATE_OF_BIRTH':
+        // Must contain digits and a trigger phrase (handled by engine, but good to check)
+        return /[\d\u0966-\u096F\u0CE6-\u0CEF]/.test(text) && /DOB|Birth|Born/i.test(text);
       case 'PHONE':
         // Must have at least 7 digits
         const digits = text.replace(/\D/g, '');
         return digits.length >= 7;
       case 'MONEY':
-        // Must contain currency symbol or code
-        return /[₹$€£¥]|USD|INR|EUR/.test(text);
+        // Support expanded set of symbols and codes from MoneyRegexEngine
+        return /[$€£₹¥₩₽฿₫₦₱₪₡₴₲₵]|USD|EUR|GBP|INR|JPY|CNY|AUD|CAD|SGD|AED|SAR|ZAR|CHF|lakh|crore/i.test(text);
       case 'EMAIL':
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text);
       default:
         // Model entities (PER, LOC, ORG) should be at least 2 chars
         return text.length >= 2;
     }
-  }
-
-  /**
-   * Advanced overlap resolution
-   */
-  private static resolveOverlaps(entities: any[]): any[] {
-    if (entities.length === 0) return [];
-
-    // Sort: 1. Start index (asc), 2. Length (desc), 3. Priority (Regex > Model)
-    const sorted = entities.sort((a, b) => {
-      if (a.start !== b.start) return a.start - b.start;
-      const lenA = a.end - a.start;
-      const lenB = b.end - b.start;
-      if (lenA !== lenB) return lenB - lenA;
-      if (a.source !== b.source) return a.source === 'regex' ? -1 : 1;
-      return b.confidence - a.confidence;
-    });
-
-    const result: any[] = [];
-    let lastEnd = -1;
-
-    for (const entity of sorted) {
-      if (entity.start >= lastEnd) {
-        result.push(entity);
-        lastEnd = entity.end;
-      } else {
-        // Overlap detected. 
-        // If current is regex and previous was model, and they overlap significantly, 
-        // we might want to prefer regex. But our sort already handles priority if they start at same place.
-        // If they overlap but current starts later, we skip current because we prefer the earlier/longer one.
-      }
-    }
-
-    return result;
   }
 
   private static aggregateEntities(rawEntities: any[], text: string) {
