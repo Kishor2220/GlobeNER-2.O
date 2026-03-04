@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import router from "./server/routes.ts";
+import router from "./server/routes";
 import { logger } from "./server/logger.ts";
 import { CONFIG } from "./server/config.ts";
 import { healthService } from "./server/services/healthService.ts";
@@ -27,7 +27,16 @@ app.use(express.json({ limit: `${CONFIG.API.MAX_FILE_SIZE_MB}mb` }));
 async function start() {
   logger.info(`Starting GlobeNER ${CONFIG.VERSION} in ${CONFIG.NODE_ENV} mode...`, 'Startup');
 
-  // 2. Vite Middleware (Handles frontend fully)
+  // 2. API Routes
+  logger.info("Mounting API routes at /api", "Startup");
+  app.use("/api", router);
+
+  // 3. Health Check
+  app.get("/health", (req, res) => {
+    res.json(healthService.getHealth());
+  });
+
+  // 4. Vite Middleware (Handles frontend fully)
   if (CONFIG.NODE_ENV !== "production") {
     try {
       const vite = await createViteServer({
@@ -42,14 +51,6 @@ async function start() {
   } else {
     app.use(express.static(path.join(__dirname, "dist")));
   }
-
-  // 3. API Routes
-  app.use("/api", router);
-
-  // 4. Health Check
-  app.get("/health", (req, res) => {
-    res.json(healthService.getHealth());
-  });
 
   // 5. Production Fallback
   if (CONFIG.NODE_ENV === "production") {

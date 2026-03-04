@@ -208,4 +208,10 @@ router.post("/analyze", async (req, res) => {
   }
 });
 
+// Catch-all for /api/*
+router.use((req, res) => {
+  logger.warn(`API Route not found: ${req.method} ${req.url}`, 'API');
+  res.status(404).json({ error: "API Route not found", method: req.method, url: req.url });
+});
+
 export default router;
