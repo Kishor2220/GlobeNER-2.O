@@ -50,7 +50,7 @@ export function TextAnalysis() {
         text, 
         confidenceThreshold: confidence 
       }, {
-        timeout: 5000 // 5 seconds timeout
+        timeout: 30000 // 30 seconds timeout
       });
       console.log("[TextAnalysis] API Response:", response.data);
       setResult(response.data || null);

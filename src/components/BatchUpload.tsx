@@ -47,7 +47,7 @@ export function BatchUpload() {
     setProgress(0);
     
     try {
-      const health = await axios.get("/health", { timeout: 5000 });
+      const health = await axios.get("/health", { timeout: 30000 });
       if (health.data.status !== "ok") {
         throw new Error("System is not healthy");
       }
@@ -67,7 +67,7 @@ export function BatchUpload() {
       try {
         const response = await axios.post("/api/upload", formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 5000 // 5 seconds timeout
+          timeout: 30000 // 30 seconds timeout
         });
         
         console.log(`[BatchUpload] API Response for ${file.name}:`, response.data);

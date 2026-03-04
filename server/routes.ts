@@ -192,6 +192,19 @@ router.get("/analytics", (req, res) => {
   }
 });
 
+// Placeholder routes for frontend compatibility
+router.get("/alerts", (req, res) => {
+  res.json([]);
+});
+
+router.get("/behavior", (req, res) => {
+  res.json({
+    scores: [],
+    anomalies: [],
+    summary: "Behavioral analysis placeholder"
+  });
+});
+
 router.post("/analyze", async (req, res) => {
   const { text, confidenceThreshold = 0.5 } = req.body;
   if (!text) return res.status(400).json({ error: "Text is required" });

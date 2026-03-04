@@ -12,16 +12,16 @@ export const CONFIG = {
   },
   MODEL: {
     NAME: 'Xenova/bert-base-NER',
-    LOCAL_PATH: process.env.LOCAL_MODEL_PATH || 'local_models',
-    TIMEOUT_MS: 10000,
-    INFERENCE_TIMEOUT_MS: 1800
+    CACHE_DIR: 'models',
+    TIMEOUT_MS: 30000,
+    INFERENCE_TIMEOUT_MS: 10000
   },
   API: {
-    REQUEST_TIMEOUT_MS: 5000,
+    REQUEST_TIMEOUT_MS: 30000,
     BATCH_LIMIT: 50,
     MAX_FILE_SIZE_MB: 50
   },
   STARTUP: {
-    TIMEOUT_MS: 10000
+    TIMEOUT_MS: 30000
   }
 };

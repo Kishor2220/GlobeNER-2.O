@@ -21,7 +21,17 @@ export default defineConfig(({mode}) => {
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: {
-        ignored: ['**/local_models/**', '**/*.db', '**/*.db-journal']
+        ignored: [
+          '**/local_models/**', 
+          '**/*.db', 
+          '**/*.db-journal',
+          '**/README.md',
+          '**/Dockerfile',
+          '**/docker-compose.yml',
+          '**/metadata.json',
+          '**/.env',
+          '**/.env.*'
+        ]
       }
     },
   };

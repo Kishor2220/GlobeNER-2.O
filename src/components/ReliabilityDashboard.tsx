@@ -14,7 +14,7 @@ export function ReliabilityDashboard() {
     setIsEvaluating(true);
     setError(null);
     try {
-      const response = await axios.post("/api/evaluate", { dataset: [] }, { timeout: 5000 }); // Uses default dataset on server
+      const response = await axios.post("/api/evaluate", { dataset: [] }, { timeout: 30000 }); // Uses default dataset on server
       console.log("[ReliabilityDashboard] API Response:", response.data);
       if (!response.data || !response.data.metrics) {
         throw new Error("Invalid response format from server");

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "download:model": "tsx scripts/download_model.ts",
+    "download:model": "tsx scripts/download-model.ts",
     "test:offline": "tsx scripts/test_offline.ts"
   },
   "dependencies": {

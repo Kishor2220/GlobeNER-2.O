@@ -52,7 +52,7 @@ export function Analytics() {
   const { data: analyticsData, isLoading: isLoadingAnalytics, error: analyticsError } = useQuery({
     queryKey: ['analytics'],
     queryFn: async () => {
-      const response = await axios.get("/api/analytics", { timeout: 5000 });
+      const response = await axios.get("/api/analytics", { timeout: 30000 });
       return response.data || {};
     },
     staleTime: 30000,
@@ -61,7 +61,7 @@ export function Analytics() {
   const { data: alertsData } = useQuery({
     queryKey: ['alerts', alertFilter],
     queryFn: async () => {
-      const response = await axios.get(`/api/alerts?severity=${alertFilter}`, { timeout: 5000 });
+      const response = await axios.get(`/api/alerts?severity=${alertFilter}`, { timeout: 30000 });
       return Array.isArray(response.data) ? response.data : [];
     },
     staleTime: 30000,
@@ -70,7 +70,7 @@ export function Analytics() {
   const { data: behaviorDataArray } = useQuery({
     queryKey: ['behavior'],
     queryFn: async () => {
-      const response = await axios.get("/api/behavior", { timeout: 5000 });
+      const response = await axios.get("/api/behavior", { timeout: 30000 });
       return Array.isArray(response.data) ? response.data : [];
     },
     staleTime: 30000,

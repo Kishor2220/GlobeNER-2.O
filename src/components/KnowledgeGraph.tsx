@@ -22,7 +22,7 @@ export function KnowledgeGraph() {
   const { data: graphData, isLoading, error: queryError, refetch } = useQuery({
     queryKey: ['knowledgeGraph'],
     queryFn: async () => {
-      const response = await axios.get("/api/analytics", { timeout: 5000 });
+      const response = await axios.get("/api/analytics", { timeout: 30000 });
       if (response.data?.relationships && Array.isArray(response.data.relationships.nodes) && response.data.relationships.nodes.length > 0) {
         return response.data.relationships;
       }
