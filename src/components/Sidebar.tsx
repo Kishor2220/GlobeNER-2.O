@@ -10,11 +10,13 @@ import {
   X,
   ChevronRight,
   Share2,
-  Zap
+  Zap,
+  LogOut
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/Button";
 import { Tooltip } from "./ui/Tooltip";
+import { useAuth } from "./auth/AuthGuard";
 
 interface SidebarProps {
   activeTab: string;
@@ -23,6 +25,7 @@ interface SidebarProps {
 
 export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const [isOpen, setIsOpen] = React.useState(true);
+  const { logout } = useAuth();
 
   const navItems = [
     { id: "analysis", label: "Text Analysis", icon: Search, description: "Extract entities from text" },
@@ -89,26 +92,38 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         ))}
       </nav>
 
-      <div className="p-6 border-t border-white/5 bg-white/[0.01]">
+      <div className="p-4 border-t border-white/5 bg-white/[0.01] space-y-2">
         {isOpen ? (
-          <div className="flex items-center gap-4 rounded-2xl p-3 bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all cursor-pointer group">
+          <div className="flex items-center gap-4 rounded-2xl p-3 bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all cursor-pointer group relative">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-lg group-hover:scale-105 transition-transform">
               AU
             </div>
             <div className="flex flex-col overflow-hidden">
               <span className="text-sm font-bold text-zinc-200 truncate uppercase tracking-tight">Admin User</span>
               <span className="text-[10px] text-zinc-600 font-bold flex items-center gap-1.5 uppercase tracking-widest">
-                <Zap className="h-3 w-3 text-amber-500 fill-amber-500/20" /> Clearance Level 5
+                <Zap className="h-3 w-3 text-amber-500 fill-amber-500/20" /> Level 5
               </span>
             </div>
           </div>
         ) : (
-          <Tooltip content="Admin User - Clearance Level 5" position="right">
+          <Tooltip content="Admin User - Level 5" position="right">
             <div className="mx-auto h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shadow-lg cursor-pointer hover:scale-110 transition-transform">
               AU
             </div>
           </Tooltip>
         )}
+        
+        <Tooltip content="Terminate Session" position="right" disabled={isOpen}>
+          <button
+            onClick={logout}
+            className={cn(
+              "group flex w-full items-center gap-4 rounded-xl px-4 py-3 text-sm font-bold transition-all duration-300 text-rose-500/60 hover:bg-rose-500/10 hover:text-rose-400"
+            )}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            {isOpen && <span className="whitespace-nowrap uppercase tracking-tight">Logout</span>}
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

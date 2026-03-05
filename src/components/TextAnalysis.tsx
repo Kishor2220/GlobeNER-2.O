@@ -18,6 +18,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/
 import { Tooltip } from "./ui/Tooltip";
 import { cn } from "../lib/utils";
 
+import { SlidingPlaceholder } from "./ui/SlidingPlaceholder";
+
 interface Entity {
   text: string;
   label: "PER" | "LOC" | "ORG";
@@ -156,10 +158,10 @@ export function TextAnalysis() {
 
       <Card className="border-white/5 shadow-2xl shadow-black/40 bg-[#0a0a0a]/80 backdrop-blur-2xl overflow-hidden relative group">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-        <CardContent className="p-1">
+        <CardContent className="p-1 relative">
+          <SlidingPlaceholder inputValue={text} />
           <textarea
-            className="w-full min-h-[280px] p-8 bg-transparent border-none focus:ring-0 outline-none resize-y text-zinc-100 placeholder:text-zinc-700 text-lg leading-relaxed font-medium"
-            placeholder="Input raw signal data for intelligence extraction... (e.g., 'Apple CEO Tim Cook visited Cupertino on Friday.')"
+            className="w-full min-h-[280px] p-8 bg-transparent border-none focus:ring-0 outline-none resize-y text-zinc-100 placeholder:text-transparent text-lg leading-relaxed font-medium"
             value={text}
             onChange={(e) => setText(e.target.value)}
           />

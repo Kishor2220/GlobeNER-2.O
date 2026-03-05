@@ -9,11 +9,18 @@ import { ReliabilityDashboard } from "./components/ReliabilityDashboard";
 import { ApiDocs } from "./components/ApiDocs";
 import { Settings } from "./components/Settings";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { AuthGuard, useAuth } from "./components/auth/AuthGuard";
+import { LoginPage } from "./components/auth/LoginPage";
 
 const queryClient = new QueryClient();
 
-export default function App() {
+function MainContent() {
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = React.useState("analysis");
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   const renderContent = () => {
     switch (activeTab) {
@@ -37,22 +44,30 @@ export default function App() {
   };
 
   return (
+    <div className="flex h-screen w-full bg-[#0a0a0a] text-zinc-100 overflow-hidden font-sans selection:bg-indigo-500/30">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      
+      <main className="flex-1 overflow-y-auto bg-[#0a0a0a] relative">
+        {/* Subtle background gradient for depth */}
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="mx-auto max-w-[1600px] p-6 lg:p-10 relative z-10">
+          <ErrorBoundary>
+            {renderContent()}
+          </ErrorBoundary>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
     <QueryClientProvider client={queryClient}>
       <ErrorBoundary>
-        <div className="flex h-screen w-full bg-[#0a0a0a] text-zinc-100 overflow-hidden font-sans selection:bg-indigo-500/30">
-          <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-          
-          <main className="flex-1 overflow-y-auto bg-[#0a0a0a] relative">
-            {/* Subtle background gradient for depth */}
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-transparent pointer-events-none" />
-            
-            <div className="mx-auto max-w-[1600px] p-6 lg:p-10 relative z-10">
-              <ErrorBoundary>
-                {renderContent()}
-              </ErrorBoundary>
-            </div>
-          </main>
-        </div>
+        <AuthGuard>
+          <MainContent />
+        </AuthGuard>
       </ErrorBoundary>
     </QueryClientProvider>
   );
